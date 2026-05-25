@@ -1,0 +1,13 @@
+[workspace]
+members = ["release", "hg-client", "mach"]
+
+resolver = "3"
+[workspace.dependencies]
+anyhow = "1.0.102"
+clap = { version = "4.6.1", features = ["derive"] }
+regex = "1.12.3"
+serde = { version = "1.0.228", features = ["derive"] }
+thiserror = "2.0.18"
+tracing = "0.1.44"
+tracing-subscriber = { version = "0.3.23", features = ["env-filter"] }
+ureq = { version = "3.3.0", features = ["json"] }
