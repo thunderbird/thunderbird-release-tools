@@ -101,7 +101,13 @@ impl Connection {
                 stderr: String::from_utf8_lossy(&output.stderr).into_owned(),
             });
         }
-        Ok(String::from_utf8_lossy(&output.stdout).into_owned())
+        let output = String::from_utf8_lossy(&output.stdout).into_owned();
+
+        for line in output.lines() {
+            tracing::info!("{line}");
+        }
+
+        Ok(output)
     }
 }
 

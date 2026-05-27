@@ -11,7 +11,7 @@ use crate::{
     channel::Channel,
     error::{CliError, Result},
     pin::{fetch_latest_tag, pin_commit_message, read_major_version, update_gecko_rev},
-    utils::{build_repos_from_args, log_output, normalize_uplift_message},
+    utils::{build_repos_from_args, normalize_uplift_message},
 };
 
 #[derive(Parser, Debug)]
@@ -143,11 +143,11 @@ impl Cli {
                 let c_conn = c_hg.connection();
                 let m_conn = m_hg.connection();
 
-                let c_output = c_conn.run_command_string(&["pull", c_repo.kind.url().as_str()])?;
-                log_output(c_output);
+                c_conn.run_command_string(&["pull", &c_repo.kind.url()])?;
+                c_conn.run_command_string(&["up", &c_repo.kind.name(), "-C"])?;
 
-                let m_output = m_conn.run_command_string(&["pull", m_repo.kind.url().as_str()])?;
-                log_output(m_output);
+                m_conn.run_command_string(&["pull", &m_repo.kind.url()])?;
+                m_conn.run_command_string(&["up", &m_repo.kind.name(), "-C"])?;
             }
             Command::Pin { common } => {
                 let repositories = build_repos_from_args(&common)?;
@@ -164,15 +164,13 @@ impl Cli {
 
                 let mut hg = HgClient::open(&c_repo.cwd)?;
 
-                let output = hg.commit(CommitArgs {
+                hg.commit(CommitArgs {
                     message,
                     files: vec![PathBuf::from(".gecko_rev.yml")],
                     close_branch: false,
                     user: None,
                     date: None,
                 })?;
-
-                log_output(output);
             }
             Command::Uplift {
                 common,
@@ -191,11 +189,10 @@ impl Cli {
                     // Check hg extensions
                     let extensions = vec!["histedit", "evolve", "firefoxtree"];
                     for extension in extensions {
-                        let output = conn.run_command_string(&[
+                        conn.run_command_string(&[
                             "config",
                             format!("extensions.{}", extension).as_str(),
                         ])?;
-                        log_output(output);
                     }
                 }
 
@@ -266,15 +263,13 @@ impl Cli {
                     PathBuf::from("mail/config/version_display.txt"),
                 ];
 
-                let output = hg.commit(CommitArgs {
+                hg.commit(CommitArgs {
                     message,
                     files,
                     close_branch: false,
                     user: None,
                     date: None,
                 })?;
-
-                log_output(output);
             }
         }
 

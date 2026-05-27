@@ -54,9 +54,3 @@ pub fn build_repos_from_args(common: &CommonArgs) -> Result<Repositories, CliErr
     let (comm, moz) = repos_for_channel(&common.comm_dir, &common.channel, version);
     Ok(Repositories::new(comm, moz))
 }
-
-pub fn log_output(output: String) {
-    for line in output.lines() {
-        tracing::info!("{line}");
-    }
-}
