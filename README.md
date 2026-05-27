@@ -73,5 +73,4 @@ release rust-vendor --comm-dir ~/src/comm --channel release
 |-------|---------|
 | `release` | CLI binary and release orchestration |
 | `hg-client` | Mercurial command server client |
-| `mercurial` | Thin wrapper around `hg` commands |
 | `mach` | Thin wrapper around `./mach` commands |

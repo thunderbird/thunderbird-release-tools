@@ -37,10 +37,7 @@ Examples:
   release rust-vendor --comm-dir ~/src/comm --channel release
 
   # Bump version files on ESR 140
-  release update-version --comm-dir ~/src/comm --channel esr --version 140
-
-  # Full release (pin + uplift + rust vendor, etc) on esr140
-  release release --comm-dir ~/src/comm --channel esr --version 140 --uplifts abc123 def456"
+  release update-version --comm-dir ~/src/comm --channel esr --version 140"
 )]
 struct CliArgs {
     #[command(subcommand)]
