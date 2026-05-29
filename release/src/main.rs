@@ -7,6 +7,7 @@
 
 mod channel;
 mod cli;
+mod commands;
 mod error;
 mod pin;
 mod repo;

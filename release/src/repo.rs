@@ -24,6 +24,16 @@ pub struct Repository {
     pub kind: RepositoryKind,
 }
 
+impl Repository {
+    pub fn is_esr(&self) -> bool {
+        matches!(
+            self.kind,
+            RepositoryKind::Comm(CommRepository::Esr(_))
+                | RepositoryKind::Mozilla(MozillaRepository::Esr(_))
+        )
+    }
+}
+
 pub struct Repositories {
     comm: Repository,
     moz: Repository,

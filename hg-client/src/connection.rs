@@ -94,6 +94,8 @@ impl Connection {
     ///
     /// Returns an error if the command exits with a nonzero code.
     pub fn run_command_string(&mut self, args: &[&str]) -> Result<String> {
+        tracing::info!("hg {}", args.join(" "));
+
         let output = self.run_command(args)?;
         if output.return_code != 0 {
             return Err(Error::CommandFailed {

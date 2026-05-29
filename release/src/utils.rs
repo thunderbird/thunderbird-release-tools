@@ -43,7 +43,7 @@ pub fn normalize_uplift_message(desc: &str, approver: &str) -> String {
 /// Build a [`Config`] from [`CommonArgs`], resolving the comm and mozilla repositories.
 ///
 /// For ESR channels, `--version` is required to construct the versioned
-/// branch name (e.g. `comm-esr128` / `mozilla-esr128`).
+/// branch name (e.g. `comm-esr140` / `mozilla-esr140`).
 pub fn build_repos_from_args(common: &CommonArgs) -> Result<Repositories, CliError> {
     let version = match common.channel {
         Channel::Esr => common.version.as_deref().ok_or(CliError::MissingArgument(

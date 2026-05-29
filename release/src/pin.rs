@@ -7,8 +7,6 @@ use tracing::info;
 
 use crate::error::CliError;
 
-const HG_JSON_TAGS_URL: &str = "https://hg.mozilla.org/releases/{repo}/json-tags";
-
 #[derive(Deserialize)]
 struct TagsResponse {
     tags: Vec<TagEntry>,
@@ -24,6 +22,8 @@ pub struct TagData {
     pub tag: String,
     pub node: String,
 }
+
+const HG_JSON_TAGS_URL: &str = "https://hg.mozilla.org/releases/{repo}/json-tags";
 
 /// Read the major version number from mail/config/version.txt in the comm repo.
 pub fn read_major_version(comm_cwd: &Path) -> Result<String, CliError> {

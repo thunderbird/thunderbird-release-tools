@@ -73,6 +73,8 @@ impl Mach {
     ///
     /// Returns an error if the command exits with a nonzero code.
     pub fn run_command_string(&self, cmd: MachCommand) -> Result<String> {
+        tracing::info!("mach {}", &cmd.into_args().join(" "));
+
         let output = self.run_command(cmd)?;
         if output.return_code != 0 {
             return Err(MachError::CommandFailed {

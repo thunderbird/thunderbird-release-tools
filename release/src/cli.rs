@@ -1,17 +1,13 @@
 use std::path::PathBuf;
 
 use clap::{Args, Parser, Subcommand};
-use hg_cmdserver::{
-    HgClient, HgRepo,
-    api::{CommitArgs, LogArgs},
-};
-use mach::{Mach, commands::MachCommand};
+use mach::commands::MachCommand;
 
 use crate::{
     channel::Channel,
+    commands::{pin, pull_update, run_mach, update_version, uplifts},
     error::{CliError, Result},
-    pin::{fetch_latest_tag, pin_commit_message, read_major_version, update_gecko_rev},
-    utils::{build_repos_from_args, normalize_uplift_message},
+    utils::build_repos_from_args,
 };
 
 #[derive(Parser, Debug)]
@@ -21,13 +17,19 @@ use crate::{
     long_about = None,
     after_help = "\
 Examples:
+  # Pull and update both repos to the tip of their branch
+  release pull-update --comm-dir ~/src/comm --channel beta
+
   # Pin gecko rev on the beta channel
   release pin --comm-dir ~/src/comm --channel beta
 
   # Uplift two commits on release
-  release uplift --comm-dir ~/src/comm --channel release --uplifts abc123 def456
+  release uplift --comm-dir ~/src/comm --channel release --approver kryoseu --revs abc123 def456
 
-  # Check with Rust dependencies are in sync with upstream
+  # Bump version files on ESR 140
+  release update-version --comm-dir ~/src/comm --channel esr --version 140
+
+  # Check which Rust dependencies are in sync with upstream
   release rust-check-upstream --comm-dir ~/src/comm --channel release
 
   # Sync Rust dependencies with upstream
@@ -36,8 +38,8 @@ Examples:
   # Vendor Rust dependencies
   release rust-vendor --comm-dir ~/src/comm --channel release
 
-  # Bump version files on ESR 140
-  release update-version --comm-dir ~/src/comm --channel esr --version 140"
+  # Run the full release workflow
+  release all --comm-dir ~/src/comm --channel esr --version 140 --approver kryoseu --revs abc123 def456"
 )]
 struct CliArgs {
     #[command(subcommand)]
@@ -82,8 +84,8 @@ enum Command {
     },
     /// Graft one or more commits onto the current branch.
     ///
-    /// Provide revision hashes as positional arguments. At least one
-    /// revision is required.
+    /// Dry-runs each graft first, then grafts and rewrites the commit
+    /// message to include the approver. At least one revision is required.
     Uplift {
         #[command(flatten)]
         common: CommonArgs,
@@ -91,9 +93,9 @@ enum Command {
         #[arg(short, long)]
         approver: String,
         #[arg(short, long, num_args = 1.., required = true)]
-        uplifts: Vec<String>,
+        revs: Vec<String>,
     },
-    /// Checks with Rust dependencies are okay with upstream.
+    /// Check which Rust dependencies are out of sync with upstream.
     ///
     /// Runs ./mach tb-rust check-upstream
     RustCheckUpstream {
@@ -122,6 +124,19 @@ enum Command {
         #[command(flatten)]
         common: CommonArgs,
     },
+    /// Run the full release workflow in sequence.
+    ///
+    /// Pulls and updates both repos, pins .gecko_rev.yml, bumps version files
+    /// (ESR only), syncs and vendors Rust dependencies if they are out of sync,
+    /// then grafts each uplift commit.
+    All {
+        #[command(flatten)]
+        common: CommonArgs,
+        #[arg(short, long)]
+        approver: String,
+        #[arg(short, long, num_args = 1.., required = true)]
+        revs: Vec<String>,
+    },
 }
 
 pub struct Cli;
@@ -131,145 +146,59 @@ impl Cli {
         let cli = CliArgs::parse();
 
         match cli.command {
-            Command::PullUpdate { common } => {
-                let repositories = build_repos_from_args(&common)?;
-
-                let c_repo = repositories.comm();
-                let m_repo = repositories.moz();
-
-                let mut c_hg = HgClient::open(&c_repo.cwd)?;
-                let mut m_hg = HgClient::open(&m_repo.cwd)?;
-
-                let c_conn = c_hg.connection();
-                let m_conn = m_hg.connection();
-
-                c_conn.run_command_string(&["pull", &c_repo.kind.url()])?;
-                c_conn.run_command_string(&["up", &c_repo.kind.name(), "-C"])?;
-
-                m_conn.run_command_string(&["pull", &m_repo.kind.url()])?;
-                m_conn.run_command_string(&["up", &m_repo.kind.name(), "-C"])?;
-            }
-            Command::Pin { common } => {
-                let repositories = build_repos_from_args(&common)?;
-
-                let c_repo = repositories.comm();
-                let m_repo = repositories.moz();
-
-                // TODO: refactor pin functions
-                let major_version = read_major_version(&c_repo.cwd)?;
-                let m_repo_name = format!("mozilla-{}", m_repo.kind.name());
-                let tag = fetch_latest_tag(&m_repo_name, &major_version)?;
-                update_gecko_rev(&c_repo.cwd, &m_repo.kind.url(), &tag)?;
-                let message = pin_commit_message(&m_repo_name, &tag);
-
-                let mut hg = HgClient::open(&c_repo.cwd)?;
-
-                hg.commit(CommitArgs {
-                    message,
-                    files: vec![PathBuf::from(".gecko_rev.yml")],
-                    close_branch: false,
-                    user: None,
-                    date: None,
-                })?;
-            }
-            Command::Uplift {
-                common,
-                approver,
-                uplifts,
-            } => {
-                let repositories = build_repos_from_args(&common)?;
-
-                let c_repo = repositories.comm();
-
-                let mut hg = HgClient::open(&c_repo.cwd)?;
-
-                {
-                    let conn = hg.connection();
-
-                    // Check hg extensions
-                    let extensions = vec!["histedit", "evolve", "firefoxtree"];
-                    for extension in extensions {
-                        conn.run_command_string(&[
-                            "config",
-                            format!("extensions.{}", extension).as_str(),
-                        ])?;
-                    }
-                }
-
-                for rev in &uplifts {
-                    let log = hg.log(LogArgs {
-                        revs: Some(rev.to_string()),
-                        limit: None,
-                        follow: false,
-                        paths: vec![],
-                    })?;
-
-                    let conn = hg.connection();
-
-                    // Dry-run
-                    conn.run_command_string(&["graft", "-r", rev, "-n"])?;
-                    conn.run_command_string(&["graft", "-r", rev])?;
-
-                    let desc = normalize_uplift_message(log[0].desc.as_str(), &approver);
-
-                    conn.run_command_string(&["metaedit", "-m", desc.as_str()])?;
-                }
-            }
-            Command::RustCheckUpstream { common } => {
-                let repositories = build_repos_from_args(&common)?;
-
-                let mach = Mach::new(repositories.moz().cwd.clone());
-                mach.run_command_string(MachCommand::RustCheckUpstream)?;
-            }
-            Command::RustSync { common } => {
-                let repositories = build_repos_from_args(&common)?;
-
-                let mach = Mach::new(repositories.moz().cwd.clone());
-                mach.run_command_string(MachCommand::RustSync)?;
-            }
-            Command::RustVendor { common } => {
-                let repositories = build_repos_from_args(&common)?;
-
-                let mach = Mach::new(repositories.moz().cwd.clone());
-                mach.run_command_string(MachCommand::RustVendor)?;
-            }
+            Command::Pin { common } => pin(&common)?,
+            Command::PullUpdate { common } => pull_update(&common)?,
             Command::UpdateVersion { common } => {
                 let version = common
                     .version
                     .as_deref()
                     .ok_or(CliError::MissingArgument("--version"))?;
 
-                let repositories = build_repos_from_args(&common)?;
+                update_version(&common, version)?;
+            }
+            Command::RustSync { common } => {
+                run_mach(&common, MachCommand::RustSync)?;
+            }
+            Command::RustVendor { common } => {
+                run_mach(&common, MachCommand::RustVendor)?;
+            }
+            Command::RustCheckUpstream { common } => {
+                run_mach(&common, MachCommand::RustCheckUpstream)?;
+            }
+            Command::Uplift {
+                common,
+                approver,
+                revs,
+            } => uplifts(&common, &approver, &revs)?,
 
+            Command::All {
+                common,
+                approver,
+                revs,
+            } => {
+                let version = common
+                    .version
+                    .as_deref()
+                    .ok_or(CliError::MissingArgument("--version"))?;
+
+                let repositories = build_repos_from_args(&common)?;
                 let c_repo = repositories.comm();
 
-                let version_plain = version.strip_suffix("esr").unwrap_or(version);
+                pull_update(&common)?;
+                pin(&common)?;
 
-                std::fs::write(
-                    c_repo.cwd.join("mail/config/version.txt"),
-                    format!("{}\n", version_plain),
-                )?;
+                if c_repo.is_esr() {
+                    update_version(&common, version)?;
+                }
 
-                std::fs::write(
-                    c_repo.cwd.join("mail/config/version_display.txt"),
-                    format!("{}\n", version),
-                )?;
+                let output = run_mach(&common, MachCommand::RustCheckUpstream)?;
 
-                let mut hg = HgClient::open(&c_repo.cwd)?;
+                if !output.eq("Rust dependencies are okay.\n") {
+                    run_mach(&common, MachCommand::RustSync)?;
+                    run_mach(&common, MachCommand::RustVendor)?;
+                }
 
-                let message = format!("No bug - Set version {} for release. r+a=release", version);
-                let files = vec![
-                    PathBuf::from("mail/config/version.txt"),
-                    PathBuf::from("mail/config/version_display.txt"),
-                ];
-
-                hg.commit(CommitArgs {
-                    message,
-                    files,
-                    close_branch: false,
-                    user: None,
-                    date: None,
-                })?;
+                uplifts(&common, &approver, &revs)?;
             }
         }
 

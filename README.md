@@ -8,11 +8,12 @@ A Rust CLI for automating Thunderbird release cuts.
 
 - **pull-update** — pulls both repos and updates to the tip of their branch
 - **pin** — pins `.gecko_rev.yml` to the latest Mozilla tag for the current major version and commits the result
-- **uplift** — grafts one or more commits onto the current branch, normalizing commit messages and stamping an approver
+- **uplift** — dry-runs, grafts, and rewrites the commit message (including approver) for one or more commits
 - **update-version** — bumps `mail/config/version.txt` and `mail/config/version_display.txt` and commits the result
 - **rust-check-upstream** — checks whether Rust dependencies are in sync with upstream via `./mach tb-rust check-upstream`
 - **rust-sync** — syncs Rust dependencies with upstream via `./mach tb-rust sync`
 - **rust-vendor** — vendors Rust dependencies via `./mach tb-rust vendor`
+- **all** — runs the full workflow: pull-update, pin, update-version (ESR only), rust sync+vendor if needed, then uplift
 
 ## Prerequisites
 
@@ -40,7 +41,7 @@ release <SUBCOMMAND> --comm-dir <PATH> --channel <beta|release|esr> [--version <
 |------|-------------|
 | `-d, --comm-dir <PATH>` | Path to the `comm/` directory inside the mozilla repo |
 | `-c, --channel <CHANNEL>` | Release channel: `beta`, `release`, or `esr` |
-| `-v, --version <N>` | Major version number. Required for `esr` channel and the `update-version` subcommand. For ESR, pass either `128` or `128esr` — the `esr` suffix is written to `version_display.txt` and stripped for `version.txt` |
+| `-v, --version <N>` | Major version number. Required for `esr` channel and the `update-version` and `all` subcommands. For ESR, pass either `140` or `140esr` — the `esr` suffix is written to `version_display.txt` and stripped for `version.txt` |
 
 ### Examples
 
@@ -52,10 +53,10 @@ release pull-update --comm-dir ~/src/comm --channel beta
 release pin --comm-dir ~/src/comm --channel beta
 
 # Uplift two commits on release (--approver is required)
-release uplift --comm-dir ~/src/comm --channel release --approver kryoseu --uplifts abc123 def456
+release uplift --comm-dir ~/src/comm --channel release --approver kryoseu --revs abc123 def456
 
-# Bump version files for ESR 128 (accepts "128" or "128esr")
-release update-version --comm-dir ~/src/comm --channel esr --version 128esr
+# Bump version files for ESR 140 (accepts "140" or "140esr")
+release update-version --comm-dir ~/src/comm --channel esr --version 140esr
 
 # Check whether Rust dependencies are in sync with upstream
 release rust-check-upstream --comm-dir ~/src/comm --channel release
@@ -65,6 +66,9 @@ release rust-sync --comm-dir ~/src/comm --channel release
 
 # Vendor Rust dependencies
 release rust-vendor --comm-dir ~/src/comm --channel release
+
+# Run the full release workflow for ESR 140
+release all --comm-dir ~/src/comm --channel esr --version 140esr --approver kryoseu --revs abc123 def456
 ```
 
 ## Workspace crates
