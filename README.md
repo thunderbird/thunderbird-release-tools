@@ -76,5 +76,5 @@ release all --comm-dir ~/src/comm --channel esr --version 140esr --approver kryo
 | Crate | Purpose |
 |-------|---------|
 | `release` | CLI binary and release orchestration |
-| `hg-client` | Mercurial command server client |
+| [hg-client](https://github.com/ericmarkmartin/hg-client/commit/2dc80c5c0219b54eb28f9d40f8e00336b3153093) | Mercurial command server client |
 | `mach` | Thin wrapper around `./mach` commands |
