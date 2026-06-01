@@ -1,44 +1,18 @@
-use std::path::Path;
-
-use anyhow::{Context, Result, bail};
+use anyhow::{Context, Result};
 use regex::Regex;
 use serde::Deserialize;
+use std::path::Path;
 use tracing::info;
-
-use crate::error::CliError;
 
 #[derive(Deserialize)]
 struct TagsResponse {
-    tags: Vec<TagEntry>,
+    tags: Vec<TagData>,
 }
 
 #[derive(Deserialize)]
-struct TagEntry {
-    tag: String,
-    node: String,
-}
-
 pub struct TagData {
     pub tag: String,
     pub node: String,
-}
-
-const HG_JSON_TAGS_URL: &str = "https://hg.mozilla.org/releases/{repo}/json-tags";
-
-/// Read the major version number from mail/config/version.txt in the comm repo.
-pub fn read_major_version(comm_cwd: &Path) -> Result<String, CliError> {
-    let path = comm_cwd.join("mail/config/version.txt");
-
-    let content = std::fs::read_to_string(&path)
-        .with_context(|| format!("failed to read {}", path.display()))?;
-
-    let major = content
-        .trim()
-        .split('.')
-        .next()
-        .context("version.txt is empty")?;
-
-    Ok(major.to_string())
 }
 
 /// Fetch the most recent suitable Firefox tag from the hg JSON tags API.
@@ -46,13 +20,17 @@ pub fn read_major_version(comm_cwd: &Path) -> Result<String, CliError> {
 /// Tags are in reverse-chronological order; we check the first 10 and return
 /// the first that matches either the BASE or RELEASE/BUILD pattern for the
 /// given major version.
-pub fn fetch_latest_tag(moz_repo_name: &str, major_version: &str) -> Result<TagData> {
-    let url = HG_JSON_TAGS_URL.replace("{repo}", moz_repo_name);
+const TAG_SCAN_LIMIT: usize = 10;
+pub fn fetch_latest_tag_from_moz(moz_repo_name: &str, version: &str) -> Result<TagData> {
+    let url = format!(
+        "https://hg.mozilla.org/releases/{}/json-tags",
+        moz_repo_name
+    );
 
-    let base_re = Regex::new(&format!(r"^FIREFOX_RELEASE_{}_BASE$", major_version))?;
+    let base_re = Regex::new(&format!(r"^FIREFOX_RELEASE_{}_BASE$", version))?;
     let release_re = Regex::new(&format!(
         r"^FIREFOX_{}_[\dbesr_]+(RELEASE|BUILD\d)$",
-        major_version
+        version
     ))?;
 
     info!("fetching tags from {}", url);
@@ -63,20 +41,19 @@ pub fn fetch_latest_tag(moz_repo_name: &str, major_version: &str) -> Result<TagD
         .read_json()
         .context("failed to parse tags response")?;
 
-    for entry in response.tags.iter().take(10) {
-        if base_re.is_match(&entry.tag) || release_re.is_match(&entry.tag) {
-            info!("found tag: {} ({})", entry.tag, &entry.node[..12]);
-            return Ok(TagData {
-                tag: entry.tag.clone(),
-                node: entry.node.clone(),
-            });
-        }
-    }
-
-    bail!(
-        "no matching tag found in first 10 tags for version {}",
-        major_version
-    )
+    response
+        .tags
+        .into_iter()
+        .take(TAG_SCAN_LIMIT)
+        .find(|e| base_re.is_match(&e.tag) || release_re.is_match(&e.tag))
+        .inspect(|e| info!("found tag: {} ({})", e.tag, &e.node[..12]))
+        .ok_or_else(|| {
+            anyhow::anyhow!(
+                "no matching tag found in first {} tags for version {}",
+                TAG_SCAN_LIMIT,
+                version
+            )
+        })
 }
 
 /// Update .gecko_rev.yml in place, preserving comments and unrelated lines.

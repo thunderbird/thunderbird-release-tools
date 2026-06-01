@@ -13,10 +13,9 @@ mod pin;
 mod repo;
 mod utils;
 
+use crate::cli::Cli;
 use tracing::level_filters::LevelFilter;
 use tracing_subscriber::EnvFilter;
-
-use crate::cli::Cli;
 
 fn main() {
     // Default to INFO; override with RUST_LOG env var.

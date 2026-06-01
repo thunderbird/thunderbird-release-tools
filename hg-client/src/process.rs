@@ -1,7 +1,8 @@
-use std::path::Path;
-use std::process::{Child, ChildStdin, ChildStdout, Command, Stdio};
-
 use crate::error::{Error, Result};
+use std::{
+    path::Path,
+    process::{Child, ChildStdin, ChildStdout, Command, Stdio},
+};
 
 /// Manages the hg command server child process.
 pub struct HgProcess {
@@ -21,12 +22,14 @@ impl HgProcess {
             .stderr(Stdio::piped())
             .spawn()?;
 
-        let stdin = child.stdin.take().ok_or_else(|| {
-            Error::ProtocolError("failed to capture child stdin".to_string())
-        })?;
-        let stdout = child.stdout.take().ok_or_else(|| {
-            Error::ProtocolError("failed to capture child stdout".to_string())
-        })?;
+        let stdin = child
+            .stdin
+            .take()
+            .ok_or_else(|| Error::ProtocolError("failed to capture child stdin".to_string()))?;
+        let stdout = child
+            .stdout
+            .take()
+            .ok_or_else(|| Error::ProtocolError("failed to capture child stdout".to_string()))?;
 
         Ok(HgProcess {
             child,

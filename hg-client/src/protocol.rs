@@ -1,6 +1,5 @@
-use std::io::{Read, Write};
-
 use crate::error::{Error, Result};
+use std::io::{Read, Write};
 
 /// Identifies which channel a server message arrived on.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -67,9 +66,8 @@ pub fn read_message(reader: &mut impl Read) -> Result<ServerMessage> {
 ///
 /// Wire format: 4-byte big-endian u32 length + payload.
 pub fn write_payload(writer: &mut impl Write, data: &[u8]) -> Result<()> {
-    let length = u32::try_from(data.len()).map_err(|_| {
-        Error::ProtocolError(format!("payload too large: {} bytes", data.len()))
-    })?;
+    let length = u32::try_from(data.len())
+        .map_err(|_| Error::ProtocolError(format!("payload too large: {} bytes", data.len())))?;
     writer.write_all(&length.to_be_bytes())?;
     writer.write_all(data)?;
     writer.flush()?;
@@ -98,9 +96,8 @@ pub fn write_runcommand(writer: &mut impl Write, args: &[&str]) -> Result<()> {
 
 #[cfg(test)]
 mod tests {
-    use std::io::Cursor;
-
     use super::*;
+    use std::io::Cursor;
 
     #[test]
     fn read_output_message() {

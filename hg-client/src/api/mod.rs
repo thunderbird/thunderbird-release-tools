@@ -1,10 +1,10 @@
 pub mod types;
 
+use crate::{
+    connection::Connection,
+    error::{Error, Result},
+};
 use std::path::{Path, PathBuf};
-
-use crate::connection::Connection;
-use crate::error::{Error, Result};
-
 use types::{
     AnnotateResult, BookmarkEntry, BranchEntry, ConfigEntry, LogEntry, StatusEntry, TagEntry,
 };
@@ -95,6 +95,7 @@ pub trait HgRepo {
     fn config(&mut self) -> Result<Vec<ConfigEntry>>;
     fn config_get(&mut self, name: &str) -> Result<Option<String>>;
     fn resolve_rev(&mut self, rev: &str) -> Result<String>;
+    fn export(&mut self, rev: &str) -> Result<String>;
 
     // Write operations
     fn add(&mut self, files: &[&Path]) -> Result<()>;
@@ -334,6 +335,17 @@ impl HgRepo for HgClient {
             .conn
             .run_command_string(&["log", "-r", rev, "-T", "{node}"])?;
         Ok(output)
+    }
+
+    fn export(&mut self, rev: &str) -> Result<String> {
+        let out = self.conn.run_command(&["export", "-r", rev])?;
+        if out.return_code != 0 {
+            return Err(Error::CommandFailed {
+                code: out.return_code,
+                stderr: String::from_utf8_lossy(&out.stderr).into_owned(),
+            });
+        }
+        Ok(String::from_utf8_lossy(&out.stdout).into_owned())
     }
 
     fn add(&mut self, files: &[&Path]) -> Result<()> {

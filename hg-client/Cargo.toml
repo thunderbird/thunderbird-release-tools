@@ -1,15 +1,16 @@
 [package]
 name = "hg-cmdserver"
-version = "0.1.0"
-edition = "2024"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
 description = "A Rust client for the Mercurial command server protocol"
 license = "MIT"
 
 [dependencies]
 tracing = { workspace = true }
-serde = { version = "1", features = ["derive"] }
-serde_json = "1"
-thiserror = "2"
+serde = { workspace = true }
+thiserror = { workspace = true }
+serde_json = "1.0.150"
 
 [dev-dependencies]
-tempfile = "3"
+tempfile = "3.27.0"

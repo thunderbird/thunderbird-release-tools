@@ -1,10 +1,10 @@
-use std::process::Command;
-
-use hg_cmdserver::api::types::FileStatus;
-use hg_cmdserver::api::{
-    AnnotateArgs, CommitArgs, DiffArgs, LogArgs, StatusArgs, UpdateArgs,
+use hg_cmdserver::{
+    Connection,
+    HgClient,
+    HgRepo,
+    api::{AnnotateArgs, CommitArgs, DiffArgs, LogArgs, StatusArgs, UpdateArgs, types::FileStatus},
 };
-use hg_cmdserver::{Connection, HgClient, HgRepo};
+use std::process::Command;
 use tempfile::TempDir;
 
 fn hg_available() -> bool {

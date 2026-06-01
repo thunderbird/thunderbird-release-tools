@@ -1,23 +1,19 @@
-use std::path::PathBuf;
-
+use crate::{
+    error::{CliError, Result},
+    pin::{fetch_latest_tag_from_moz, pin_commit_message, update_gecko_rev},
+    repo::Repositories,
+    utils::{compare_patches, normalize_uplift_message},
+};
 use hg_cmdserver::{
     HgClient, HgRepo,
     api::{CommitArgs, LogArgs},
 };
 use mach::{Mach, commands::MachCommand};
+use std::path::PathBuf;
 
-use crate::{
-    cli::CommonArgs,
-    error::Result,
-    pin::{fetch_latest_tag, pin_commit_message, read_major_version, update_gecko_rev},
-    utils::{build_repos_from_args, normalize_uplift_message},
-};
-
-pub fn pull_update(common: &CommonArgs) -> Result<()> {
-    let repositories = build_repos_from_args(common)?;
-
-    let c_repo = repositories.comm();
-    let m_repo = repositories.moz();
+pub fn pull_update(repos: &Repositories) -> Result<()> {
+    let c_repo = repos.comm();
+    let m_repo = repos.moz();
 
     let mut c_hg = HgClient::open(&c_repo.cwd)?;
     let mut m_hg = HgClient::open(&m_repo.cwd)?;
@@ -34,16 +30,18 @@ pub fn pull_update(common: &CommonArgs) -> Result<()> {
     Ok(())
 }
 
-pub fn pin(common: &CommonArgs) -> Result<()> {
-    let repositories = build_repos_from_args(common)?;
+pub fn pin(repos: &Repositories) -> Result<()> {
+    let c_repo = repos.comm();
+    let m_repo = repos.moz();
 
-    let c_repo = repositories.comm();
-    let m_repo = repositories.moz();
+    let path = c_repo.cwd.join("mail/config/version.txt");
+    let content = std::fs::read_to_string(&path)?;
+    let version = content.trim().split('.').next().ok_or_else(|| {
+        CliError::CommandFailed(format!("version not found in {}", path.display()))
+    })?;
 
-    // TODO: refactor pin functions
-    let major_version = read_major_version(&c_repo.cwd)?;
     let m_repo_name = format!("mozilla-{}", m_repo.kind.name());
-    let tag = fetch_latest_tag(&m_repo_name, &major_version)?;
+    let tag = fetch_latest_tag_from_moz(&m_repo_name, version)?;
     update_gecko_rev(&c_repo.cwd, &m_repo.kind.url(), &tag)?;
     let message = pin_commit_message(&m_repo_name, &tag);
 
@@ -60,15 +58,13 @@ pub fn pin(common: &CommonArgs) -> Result<()> {
     Ok(())
 }
 
-pub fn uplifts(common: &CommonArgs, approver: &str, revs: &[String]) -> Result<()> {
-    let repositories = build_repos_from_args(common)?;
-    let c_repo = repositories.comm();
+pub fn uplifts(repos: &Repositories, approver: &str, revs: &[String]) -> Result<()> {
+    let c_repo = repos.comm();
     let mut hg = HgClient::open(&c_repo.cwd)?;
 
     {
         let conn = hg.connection();
 
-        // Check hg extensions
         let extensions = vec!["histedit", "evolve", "firefoxtree"];
         for extension in extensions {
             conn.run_command_string(&["config", format!("extensions.{}", extension).as_str()])?;
@@ -83,6 +79,8 @@ pub fn uplifts(common: &CommonArgs, approver: &str, revs: &[String]) -> Result<(
             paths: vec![],
         })?;
 
+        let original_patch = hg.export(rev)?;
+
         let conn = hg.connection();
 
         // Dry-run
@@ -90,16 +88,18 @@ pub fn uplifts(common: &CommonArgs, approver: &str, revs: &[String]) -> Result<(
         conn.run_command_string(&["graft", "-r", rev])?;
 
         let desc = normalize_uplift_message(log[0].desc.as_str(), approver);
-
         conn.run_command_string(&["metaedit", "-m", desc.as_str()])?;
+
+        let grafted_patch = hg.export(".")?;
+        // Compare origin vs uplifted patch
+        compare_patches(rev, &original_patch, &grafted_patch)?;
     }
 
     Ok(())
 }
 
-pub fn update_version(common: &CommonArgs, version: &str) -> Result<()> {
-    let repositories = build_repos_from_args(common)?;
-    let c_repo = repositories.comm();
+pub fn update_version(repos: &Repositories, version: &str) -> Result<()> {
+    let c_repo = repos.comm();
     let version_plain = version.strip_suffix("esr").unwrap_or(version);
 
     std::fs::write(
@@ -131,10 +131,24 @@ pub fn update_version(common: &CommonArgs, version: &str) -> Result<()> {
     Ok(())
 }
 
-pub fn run_mach(common: &CommonArgs, cmd: MachCommand) -> Result<String> {
-    let repositories = build_repos_from_args(common)?;
-    let mach = Mach::new(repositories.moz().cwd.clone());
-    let output = mach.run_command_string(cmd)?;
+pub fn run_mach(repos: &Repositories, cmd: MachCommand) -> Result<String> {
+    let mach = Mach::new(repos.moz().cwd.clone());
+    Ok(mach.run_command_string(cmd)?)
+}
 
-    Ok(output)
+pub fn all(repos: &Repositories, version: &str, approver: &str, revs: &[String]) -> Result<()> {
+    pull_update(repos)?;
+    pin(repos)?;
+
+    if repos.comm().is_esr() {
+        update_version(repos, version)?;
+    }
+
+    let output = run_mach(repos, MachCommand::RustCheckUpstream)?;
+    if output != "Rust dependencies are okay.\n" {
+        run_mach(repos, MachCommand::RustSync)?;
+        run_mach(repos, MachCommand::RustVendor)?;
+    }
+
+    uplifts(repos, approver, revs)
 }

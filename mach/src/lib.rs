@@ -1,15 +1,14 @@
 pub mod commands;
 mod error;
-use std::io::{BufRead, BufReader};
-use std::path::PathBuf;
-use std::process::{Command, Stdio};
-use std::thread;
-
+use crate::{commands::MachCommand, error::Result};
 pub use error::MachError;
+use std::{
+    io::{BufRead, BufReader},
+    path::PathBuf,
+    process::{Command, Stdio},
+    thread,
+};
 use tracing::{info, warn};
-
-use crate::commands::MachCommand;
-use crate::error::Result;
 
 pub struct CommandOutput {
     pub stdout: Vec<u8>,

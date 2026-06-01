@@ -1,8 +1,9 @@
+use crate::{
+    error::{Error, Result},
+    process::HgProcess,
+    protocol::{self, Channel, ServerMessage},
+};
 use std::path::Path;
-
-use crate::error::{Error, Result};
-use crate::process::HgProcess;
-use crate::protocol::{self, Channel, ServerMessage};
 
 /// Parsed hello message from the command server.
 #[derive(Debug)]

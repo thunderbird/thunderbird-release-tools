@@ -1,6 +1,5 @@
-use std::path::{Path, PathBuf};
-
 use crate::channel::Channel;
+use std::path::{Path, PathBuf};
 
 pub enum CommRepository {
     Beta,

@@ -5,7 +5,7 @@ use mach::commands::MachCommand;
 
 use crate::{
     channel::Channel,
-    commands::{pin, pull_update, run_mach, update_version, uplifts},
+    commands::{all, pin, pull_update, run_mach, update_version, uplifts},
     error::{CliError, Result},
     utils::build_repos_from_args,
 };
@@ -146,31 +146,38 @@ impl Cli {
         let cli = CliArgs::parse();
 
         match cli.command {
-            Command::Pin { common } => pin(&common)?,
-            Command::PullUpdate { common } => pull_update(&common)?,
+            Command::PullUpdate { common } => {
+                pull_update(&build_repos_from_args(&common)?)?;
+            }
+            Command::Pin { common } => {
+                pin(&build_repos_from_args(&common)?)?;
+            }
             Command::UpdateVersion { common } => {
                 let version = common
                     .version
                     .as_deref()
                     .ok_or(CliError::MissingArgument("--version"))?;
-
-                update_version(&common, version)?;
+                update_version(&build_repos_from_args(&common)?, version)?;
             }
             Command::RustSync { common } => {
-                run_mach(&common, MachCommand::RustSync)?;
+                run_mach(&build_repos_from_args(&common)?, MachCommand::RustSync)?;
             }
             Command::RustVendor { common } => {
-                run_mach(&common, MachCommand::RustVendor)?;
+                run_mach(&build_repos_from_args(&common)?, MachCommand::RustVendor)?;
             }
             Command::RustCheckUpstream { common } => {
-                run_mach(&common, MachCommand::RustCheckUpstream)?;
+                run_mach(
+                    &build_repos_from_args(&common)?,
+                    MachCommand::RustCheckUpstream,
+                )?;
             }
             Command::Uplift {
                 common,
                 approver,
                 revs,
-            } => uplifts(&common, &approver, &revs)?,
-
+            } => {
+                uplifts(&build_repos_from_args(&common)?, &approver, &revs)?;
+            }
             Command::All {
                 common,
                 approver,
@@ -180,25 +187,7 @@ impl Cli {
                     .version
                     .as_deref()
                     .ok_or(CliError::MissingArgument("--version"))?;
-
-                let repositories = build_repos_from_args(&common)?;
-                let c_repo = repositories.comm();
-
-                pull_update(&common)?;
-                pin(&common)?;
-
-                if c_repo.is_esr() {
-                    update_version(&common, version)?;
-                }
-
-                let output = run_mach(&common, MachCommand::RustCheckUpstream)?;
-
-                if !output.eq("Rust dependencies are okay.\n") {
-                    run_mach(&common, MachCommand::RustSync)?;
-                    run_mach(&common, MachCommand::RustVendor)?;
-                }
-
-                uplifts(&common, &approver, &revs)?;
+                all(&build_repos_from_args(&common)?, version, &approver, &revs)?;
             }
         }
 

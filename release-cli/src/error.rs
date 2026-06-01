@@ -3,6 +3,8 @@ use thiserror::Error;
 
 #[derive(Debug, Error)]
 pub enum CliError {
+    #[error("command failed: {0}")]
+    CommandFailed(String),
     #[error("missing argument: {0}")]
     MissingArgument(&'static str),
     #[error("hg client: {0}")]
