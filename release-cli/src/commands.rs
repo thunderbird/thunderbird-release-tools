@@ -5,15 +5,42 @@ use crate::{
     utils::{compare_patches, normalize_uplift_message},
 };
 use hg_cmdserver::{
-    HgClient, HgRepo,
+    HgClient,
+    HgRepo,
     api::{CommitArgs, LogArgs, UpdateArgs},
 };
 use mach::{CommandOutput, Mach, commands::MachCommand};
 use std::path::{Path, PathBuf};
 
-pub fn pull_update(repos: &Repositories) -> Result<()> {
-    let c_repo = repos.comm();
-    let m_repo = repos.moz();
+pub struct PullUpdateArgs {
+    pub repos: Repositories,
+}
+
+pub struct PinArgs {
+    pub repos: Repositories,
+}
+
+pub struct UpliftArgs {
+    pub repos: Repositories,
+    pub approver: String,
+    pub revs: Vec<String>,
+}
+
+pub struct UpdateVersionArgs {
+    pub repos: Repositories,
+    pub version: String,
+}
+
+pub struct AllCommandArgs {
+    pub repos: Repositories,
+    pub version: String,
+    pub approver: String,
+    pub revs: Vec<String>,
+}
+
+pub fn pull_update(args: PullUpdateArgs) -> Result<()> {
+    let c_repo = args.repos.comm();
+    let m_repo = args.repos.moz();
 
     let mut c_hg = HgClient::open(&c_repo.cwd)?;
     let mut m_hg = HgClient::open(&m_repo.cwd)?;
@@ -30,9 +57,9 @@ pub fn pull_update(repos: &Repositories) -> Result<()> {
     Ok(())
 }
 
-pub fn pin(repos: &Repositories) -> Result<TagData> {
-    let c_repo = repos.comm();
-    let m_repo = repos.moz();
+pub fn pin(args: PinArgs) -> Result<TagData> {
+    let c_repo = args.repos.comm();
+    let m_repo = args.repos.moz();
 
     let path = c_repo.cwd.join("mail/config/version.txt");
     let content = std::fs::read_to_string(&path)?;
@@ -58,8 +85,8 @@ pub fn pin(repos: &Repositories) -> Result<TagData> {
     Ok(tag)
 }
 
-pub fn uplifts(repos: &Repositories, approver: &str, revs: &[String]) -> Result<()> {
-    let c_repo = repos.comm();
+pub fn uplifts(args: UpliftArgs) -> Result<()> {
+    let c_repo = args.repos.comm();
     let mut hg = HgClient::open(&c_repo.cwd)?;
 
     {
@@ -71,7 +98,7 @@ pub fn uplifts(repos: &Repositories, approver: &str, revs: &[String]) -> Result<
         }
     }
 
-    for rev in revs {
+    for rev in &args.revs {
         let log = hg.log(LogArgs {
             revs: Some(rev.to_string()),
             limit: None,
@@ -87,20 +114,19 @@ pub fn uplifts(repos: &Repositories, approver: &str, revs: &[String]) -> Result<
         conn.run_command_string(&["graft", "-r", rev, "-n"])?;
         conn.run_command_string(&["graft", "-r", rev])?;
 
-        let desc = normalize_uplift_message(log[0].desc.as_str(), approver);
+        let desc = normalize_uplift_message(log[0].desc.as_str(), &args.approver);
         conn.run_command_string(&["metaedit", "-m", desc.as_str()])?;
 
         let grafted_patch = hg.export(".")?;
-        // Compare origin vs uplifted patch
         compare_patches(rev, &original_patch, &grafted_patch)?;
     }
 
     Ok(())
 }
 
-pub fn update_version(repos: &Repositories, version: &str) -> Result<()> {
-    let c_repo = repos.comm();
-    let version_plain = version.strip_suffix("esr").unwrap_or(version);
+pub fn update_version(args: UpdateVersionArgs) -> Result<()> {
+    let c_repo = args.repos.comm();
+    let version_plain = args.version.strip_suffix("esr").unwrap_or(&args.version);
 
     std::fs::write(
         c_repo.cwd.join("mail/config/version.txt"),
@@ -109,12 +135,15 @@ pub fn update_version(repos: &Repositories, version: &str) -> Result<()> {
 
     std::fs::write(
         c_repo.cwd.join("mail/config/version_display.txt"),
-        format!("{}\n", version),
+        format!("{}\n", args.version),
     )?;
 
     let mut hg = HgClient::open(&c_repo.cwd)?;
 
-    let message = format!("No bug - Set version {} for release. r+a=release", version);
+    let message = format!(
+        "No bug - Set version {} for release. r+a=release",
+        args.version
+    );
     let files = vec![
         PathBuf::from("mail/config/version.txt"),
         PathBuf::from("mail/config/version_display.txt"),
@@ -134,6 +163,7 @@ pub fn update_version(repos: &Repositories, version: &str) -> Result<()> {
 pub fn run_mach(repos: &Repositories, cmd: MachCommand) -> Result<CommandOutput> {
     let mach = Mach::new(repos.moz().cwd.clone());
     let output = mach.run_command(cmd)?;
+
     if !output.is_acceptable_exit_code(cmd) {
         return Err(CliError::CommandFailed(format!(
             "mach {} failed with exit code {}",
@@ -144,36 +174,44 @@ pub fn run_mach(repos: &Repositories, cmd: MachCommand) -> Result<CommandOutput>
     Ok(output)
 }
 
-pub fn all(repos: &Repositories, version: &str, approver: &str, revs: &[String]) -> Result<()> {
-    pull_update(repos)?;
-    let tag = pin(repos)?;
+pub fn all(args: AllCommandArgs) -> Result<()> {
+    pull_update(PullUpdateArgs {
+        repos: args.repos.clone(),
+    })?;
 
-    if repos.comm().is_esr() {
-        update_version(repos, version)?;
+    let tag = pin(PinArgs {
+        repos: args.repos.clone(),
+    })?;
+
+    if args.repos.comm().is_esr() {
+        update_version(UpdateVersionArgs {
+            repos: args.repos.clone(),
+            version: args.version.clone(),
+        })?;
     }
 
     // Update mozilla to the pinned revision so rust checks run against the
     // exact state that Taskcluster will build against.
-    let mut m_hg = HgClient::open(&repos.moz().cwd)?;
+    let mut m_hg = HgClient::open(&args.repos.moz().cwd)?;
     m_hg.update(UpdateArgs {
         rev: Some(tag.node.clone()),
         clean: false,
     })?;
 
-    let check = run_mach(repos, MachCommand::RustCheckUpstream)?;
-    if check.return_code == 88 {
-        run_mach(repos, MachCommand::RustSync)?;
-        run_mach(repos, MachCommand::RustVendor)?;
+    let output = run_mach(&args.repos, MachCommand::RustCheckUpstream)?;
+    if output.return_code == 88 {
+        run_mach(&args.repos, MachCommand::RustSync)?;
+        run_mach(&args.repos, MachCommand::RustVendor)?;
 
-        let c_repo = repos.comm();
-        let moz_name = format!("mozilla-{}", repos.moz().kind.name());
+        let c_repo = args.repos.comm();
+        let moz_name = format!("mozilla-{}", &args.repos.moz().kind.name());
         let mut c_hg = HgClient::open(&c_repo.cwd)?;
 
         c_hg.addremove(Path::new("third_party/rust"))?;
         c_hg.commit(CommitArgs {
             message: format!(
                 "No Bug - Vendored Rust from {}. r=release r+a={}",
-                moz_name, approver
+                moz_name, &args.approver
             ),
             files: vec![],
             close_branch: false,
@@ -182,5 +220,9 @@ pub fn all(repos: &Repositories, version: &str, approver: &str, revs: &[String])
         })?;
     }
 
-    uplifts(repos, approver, revs)
+    uplifts(UpliftArgs {
+        repos: args.repos,
+        approver: args.approver,
+        revs: args.revs,
+    })
 }

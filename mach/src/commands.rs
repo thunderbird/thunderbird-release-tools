@@ -13,5 +13,4 @@ impl MachCommand {
             MachCommand::RustVendor => vec!["tb-rust".into(), "vendor".into()],
         }
     }
-
 }

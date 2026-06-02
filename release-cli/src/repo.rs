@@ -1,23 +1,27 @@
 use crate::channel::Channel;
 use std::path::{Path, PathBuf};
 
+#[derive(Clone)]
 pub enum CommRepository {
     Beta,
     Release,
     Esr(String),
 }
 
+#[derive(Clone)]
 pub enum MozillaRepository {
     Beta,
     Release,
     Esr(String),
 }
 
+#[derive(Clone)]
 pub enum RepositoryKind {
     Comm(CommRepository),
     Mozilla(MozillaRepository),
 }
 
+#[derive(Clone)]
 pub struct Repository {
     pub cwd: PathBuf,
     pub kind: RepositoryKind,
@@ -33,6 +37,7 @@ impl Repository {
     }
 }
 
+#[derive(Clone)]
 pub struct Repositories {
     comm: Repository,
     moz: Repository,

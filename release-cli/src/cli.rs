@@ -1,14 +1,24 @@
-use std::path::PathBuf;
-
-use clap::{Args, Parser, Subcommand};
-use mach::commands::MachCommand;
-
 use crate::{
     channel::Channel,
-    commands::{all, pin, pull_update, run_mach, update_version, uplifts},
+    commands::{
+        AllCommandArgs,
+        PinArgs,
+        PullUpdateArgs,
+        UpdateVersionArgs,
+        UpliftArgs,
+        all,
+        pin,
+        pull_update,
+        run_mach,
+        update_version,
+        uplifts,
+    },
     error::{CliError, Result},
     utils::build_repos_from_args,
 };
+use clap::{Args, Parser, Subcommand};
+use mach::commands::MachCommand;
+use std::path::PathBuf;
 
 #[derive(Parser, Debug)]
 #[command(
@@ -147,17 +157,21 @@ impl Cli {
 
         match cli.command {
             Command::PullUpdate { common } => {
-                pull_update(&build_repos_from_args(&common)?)?;
+                pull_update(PullUpdateArgs {
+                    repos: build_repos_from_args(&common)?,
+                })?;
             }
             Command::Pin { common } => {
-                pin(&build_repos_from_args(&common)?)?;
+                pin(PinArgs {
+                    repos: build_repos_from_args(&common)?,
+                })?;
             }
             Command::UpdateVersion { common } => {
+                let repos = build_repos_from_args(&common)?;
                 let version = common
                     .version
-                    .as_deref()
                     .ok_or(CliError::MissingArgument("--version"))?;
-                update_version(&build_repos_from_args(&common)?, version)?;
+                update_version(UpdateVersionArgs { repos, version })?;
             }
             Command::RustSync { common } => {
                 run_mach(&build_repos_from_args(&common)?, MachCommand::RustSync)?;
@@ -176,18 +190,27 @@ impl Cli {
                 approver,
                 revs,
             } => {
-                uplifts(&build_repos_from_args(&common)?, &approver, &revs)?;
+                uplifts(UpliftArgs {
+                    repos: build_repos_from_args(&common)?,
+                    approver,
+                    revs,
+                })?;
             }
             Command::All {
                 common,
                 approver,
                 revs,
             } => {
+                let repos = build_repos_from_args(&common)?;
                 let version = common
                     .version
-                    .as_deref()
                     .ok_or(CliError::MissingArgument("--version"))?;
-                all(&build_repos_from_args(&common)?, version, &approver, &revs)?;
+                all(AllCommandArgs {
+                    repos,
+                    version,
+                    approver,
+                    revs,
+                })?;
             }
         }
 

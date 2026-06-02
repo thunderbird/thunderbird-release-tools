@@ -1,10 +1,9 @@
-use regex::Regex;
-
 use crate::{
     cli::CommonArgs,
     error::CliError,
     repo::{Repositories, repos_for_channel},
 };
+use regex::Regex;
 
 /// Rewrites the first line of a commit description for an uplift:
 /// - Strips any existing `r+a=` / `a=` annotations

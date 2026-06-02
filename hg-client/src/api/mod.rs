@@ -6,7 +6,13 @@ use crate::{
 };
 use std::path::{Path, PathBuf};
 use types::{
-    AnnotateResult, BookmarkEntry, BranchEntry, ConfigEntry, LogEntry, StatusEntry, TagEntry,
+    AnnotateResult,
+    BookmarkEntry,
+    BranchEntry,
+    ConfigEntry,
+    LogEntry,
+    StatusEntry,
+    TagEntry,
 };
 
 /// Arguments for `hg log`.
