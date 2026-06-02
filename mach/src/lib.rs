@@ -16,6 +16,17 @@ pub struct CommandOutput {
     pub return_code: i32,
 }
 
+impl CommandOutput {
+    // https://searchfox.org/comm-central/source/python/rocbuild/rocbuild/rust.py#788
+    // Exit code 88 means dependencies are out of sync, not a failure.
+    pub fn is_acceptable_exit_code(&self, cmd: MachCommand) -> bool {
+        match cmd {
+            MachCommand::RustCheckUpstream => matches!(self.return_code, 0 | 88),
+            _ => self.return_code == 0,
+        }
+    }
+}
+
 pub struct Mach {
     pub cwd: PathBuf,
 }

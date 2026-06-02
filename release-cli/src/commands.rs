@@ -1,14 +1,14 @@
 use crate::{
     error::{CliError, Result},
-    pin::{fetch_latest_tag_from_moz, pin_commit_message, update_gecko_rev},
+    pin::{TagData, fetch_latest_tag_from_moz, pin_commit_message, update_gecko_rev},
     repo::Repositories,
     utils::{compare_patches, normalize_uplift_message},
 };
 use hg_cmdserver::{
     HgClient, HgRepo,
-    api::{CommitArgs, LogArgs},
+    api::{CommitArgs, LogArgs, UpdateArgs},
 };
-use mach::{Mach, commands::MachCommand};
+use mach::{CommandOutput, Mach, commands::MachCommand};
 use std::path::{Path, PathBuf};
 
 pub fn pull_update(repos: &Repositories) -> Result<()> {
@@ -30,7 +30,7 @@ pub fn pull_update(repos: &Repositories) -> Result<()> {
     Ok(())
 }
 
-pub fn pin(repos: &Repositories) -> Result<()> {
+pub fn pin(repos: &Repositories) -> Result<TagData> {
     let c_repo = repos.comm();
     let m_repo = repos.moz();
 
@@ -55,7 +55,7 @@ pub fn pin(repos: &Repositories) -> Result<()> {
         date: None,
     })?;
 
-    Ok(())
+    Ok(tag)
 }
 
 pub fn uplifts(repos: &Repositories, approver: &str, revs: &[String]) -> Result<()> {
@@ -131,49 +131,55 @@ pub fn update_version(repos: &Repositories, version: &str) -> Result<()> {
     Ok(())
 }
 
-pub fn run_mach(repos: &Repositories, cmd: MachCommand) -> Result<String> {
+pub fn run_mach(repos: &Repositories, cmd: MachCommand) -> Result<CommandOutput> {
     let mach = Mach::new(repos.moz().cwd.clone());
-    Ok(mach.run_command_string(cmd)?)
+    let output = mach.run_command(cmd)?;
+    if !output.is_acceptable_exit_code(cmd) {
+        return Err(CliError::CommandFailed(format!(
+            "mach {} failed with exit code {}",
+            cmd.into_args().join(" "),
+            output.return_code
+        )));
+    }
+    Ok(output)
 }
 
 pub fn all(repos: &Repositories, version: &str, approver: &str, revs: &[String]) -> Result<()> {
     pull_update(repos)?;
-    pin(repos)?;
+    let tag = pin(repos)?;
 
     if repos.comm().is_esr() {
         update_version(repos, version)?;
     }
 
-    let mach = Mach::new(repos.moz().cwd.clone());
-    let check = mach.run_command(MachCommand::RustCheckUpstream)?;
+    // Update mozilla to the pinned revision so rust checks run against the
+    // exact state that Taskcluster will build against.
+    let mut m_hg = HgClient::open(&repos.moz().cwd)?;
+    m_hg.update(UpdateArgs {
+        rev: Some(tag.node.clone()),
+        clean: false,
+    })?;
 
-    match check.return_code {
-        0 => {}
-        // https://searchfox.org/comm-central/source/python/rocbuild/rocbuild/rust.py#788
-        88 => {
-            run_mach(repos, MachCommand::RustSync)?;
-            run_mach(repos, MachCommand::RustVendor)?;
+    let check = run_mach(repos, MachCommand::RustCheckUpstream)?;
+    if check.return_code == 88 {
+        run_mach(repos, MachCommand::RustSync)?;
+        run_mach(repos, MachCommand::RustVendor)?;
 
-            let c_repo = repos.comm();
-            let moz_name = format!("mozilla-{}", repos.moz().kind.name());
-            let mut hg = HgClient::open(&c_repo.cwd)?;
-            hg.addremove(Path::new("third_party/rust"))?;
-            hg.commit(CommitArgs {
-                message: format!(
-                    "No Bug - Vendored Rust from {}. r=release r+a={}",
-                    moz_name, approver
-                ),
-                files: vec![],
-                close_branch: false,
-                user: None,
-                date: None,
-            })?;
-        }
-        code => {
-            return Err(CliError::CommandFailed(format!(
-                "mach tb-rust check-upstream failed with exit code {code}"
-            )));
-        }
+        let c_repo = repos.comm();
+        let moz_name = format!("mozilla-{}", repos.moz().kind.name());
+        let mut c_hg = HgClient::open(&c_repo.cwd)?;
+
+        c_hg.addremove(Path::new("third_party/rust"))?;
+        c_hg.commit(CommitArgs {
+            message: format!(
+                "No Bug - Vendored Rust from {}. r=release r+a={}",
+                moz_name, approver
+            ),
+            files: vec![],
+            close_branch: false,
+            user: None,
+            date: None,
+        })?;
     }
 
     uplifts(repos, approver, revs)
