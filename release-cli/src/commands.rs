@@ -9,7 +9,7 @@ use hg_cmdserver::{
     api::{CommitArgs, LogArgs},
 };
 use mach::{Mach, commands::MachCommand};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 pub fn pull_update(repos: &Repositories) -> Result<()> {
     let c_repo = repos.comm();
@@ -144,10 +144,36 @@ pub fn all(repos: &Repositories, version: &str, approver: &str, revs: &[String])
         update_version(repos, version)?;
     }
 
-    let output = run_mach(repos, MachCommand::RustCheckUpstream)?;
-    if output != "Rust dependencies are okay.\n" {
-        run_mach(repos, MachCommand::RustSync)?;
-        run_mach(repos, MachCommand::RustVendor)?;
+    let mach = Mach::new(repos.moz().cwd.clone());
+    let check = mach.run_command(MachCommand::RustCheckUpstream)?;
+
+    match check.return_code {
+        0 => {}
+        // https://searchfox.org/comm-central/source/python/rocbuild/rocbuild/rust.py#788
+        88 => {
+            run_mach(repos, MachCommand::RustSync)?;
+            run_mach(repos, MachCommand::RustVendor)?;
+
+            let c_repo = repos.comm();
+            let moz_name = format!("mozilla-{}", repos.moz().kind.name());
+            let mut hg = HgClient::open(&c_repo.cwd)?;
+            hg.addremove(Path::new("third_party/rust"))?;
+            hg.commit(CommitArgs {
+                message: format!(
+                    "No Bug - Vendored Rust from {}. r=release r+a={}",
+                    moz_name, approver
+                ),
+                files: vec![],
+                close_branch: false,
+                user: None,
+                date: None,
+            })?;
+        }
+        code => {
+            return Err(CliError::CommandFailed(format!(
+                "mach tb-rust check-upstream failed with exit code {code}"
+            )));
+        }
     }
 
     uplifts(repos, approver, revs)

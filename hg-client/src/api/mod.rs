@@ -100,6 +100,7 @@ pub trait HgRepo {
     // Write operations
     fn add(&mut self, files: &[&Path]) -> Result<()>;
     fn remove(&mut self, files: &[&Path]) -> Result<()>;
+    fn addremove(&mut self, path: &Path) -> Result<()>;
     fn commit(&mut self, args: CommitArgs) -> Result<String>;
     fn update(&mut self, args: UpdateArgs) -> Result<String>;
     fn tag(&mut self, name: &str, rev: Option<&str>) -> Result<()>;
@@ -365,6 +366,12 @@ impl HgRepo for HgClient {
         }
         let refs: Vec<&str> = cmd_args.iter().map(|s| s.as_str()).collect();
         self.conn.run_command_string(&refs)?;
+        Ok(())
+    }
+
+    fn addremove(&mut self, path: &Path) -> Result<()> {
+        self.conn
+            .run_command_string(&["addremove", &path.to_string_lossy()])?;
         Ok(())
     }
 
