@@ -1,6 +1,12 @@
 use crate::{
     error::{CliError, Result},
-    pin::{TagData, fetch_latest_tag_from_moz, pin_commit_message, update_gecko_rev},
+    pin::{
+        TagData,
+        fetch_latest_tag_from_moz,
+        pin_commit_message,
+        read_major_version,
+        update_gecko_rev,
+    },
     repo::Repositories,
     utils::{compare_patches, normalize_uplift_message},
 };
@@ -12,29 +18,45 @@ use hg_cmdserver::{
 use mach::{CommandOutput, Mach, commands::MachCommand};
 use std::path::{Path, PathBuf};
 
+/// Arguments for pull-update subcommand
 pub struct PullUpdateArgs {
+    /// comm and moz repos
     pub repos: Repositories,
 }
 
+/// Arguments for pin subcommand
 pub struct PinArgs {
+    /// comm and moz repos
     pub repos: Repositories,
 }
 
+/// Arguments for uplift subcommand
 pub struct UpliftArgs {
+    /// comm and moz repos
     pub repos: Repositories,
+    /// required approver for uplifts
     pub approver: String,
+    /// revisions to be uplifted
     pub revs: Vec<String>,
 }
 
+/// Arguments for update-version subcommand
 pub struct UpdateVersionArgs {
+    /// comm and moz repos
     pub repos: Repositories,
+    /// version to update
     pub version: String,
 }
 
+/// Arguments for the all subcommand
 pub struct AllCommandArgs {
+    /// comm and moz repos
     pub repos: Repositories,
+    /// version being released
     pub version: String,
+    /// approver for uplifts
     pub approver: String,
+    /// revisions to be uplifted
     pub revs: Vec<String>,
 }
 
@@ -61,14 +83,9 @@ pub fn pin(args: PinArgs) -> Result<TagData> {
     let c_repo = args.repos.comm();
     let m_repo = args.repos.moz();
 
-    let path = c_repo.cwd.join("mail/config/version.txt");
-    let content = std::fs::read_to_string(&path)?;
-    let version = content.trim().split('.').next().ok_or_else(|| {
-        CliError::CommandFailed(format!("version not found in {}", path.display()))
-    })?;
-
+    let major_version = read_major_version(&c_repo.cwd)?;
     let m_repo_name = format!("mozilla-{}", m_repo.kind.name());
-    let tag = fetch_latest_tag_from_moz(&m_repo_name, version)?;
+    let tag = fetch_latest_tag_from_moz(&m_repo_name, &major_version)?;
     update_gecko_rev(&c_repo.cwd, &m_repo.kind.url(), &tag)?;
     let message = pin_commit_message(&m_repo_name, &tag);
 

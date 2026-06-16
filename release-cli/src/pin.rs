@@ -15,6 +15,22 @@ pub struct TagData {
     pub node: String,
 }
 
+/// Read the major version number from mail/config/version.txt in the comm repo.
+pub fn read_major_version(comm_cwd: &Path) -> Result<String> {
+    let path = comm_cwd.join("mail/config/version.txt");
+
+    let content = std::fs::read_to_string(&path)
+        .with_context(|| format!("failed to read {}", path.display()))?;
+
+    let major = content
+        .trim()
+        .split('.')
+        .next()
+        .context("version.txt is empty")?;
+
+    Ok(major.to_string())
+}
+
 /// Fetch the most recent suitable Firefox tag from the hg JSON tags API.
 ///
 /// Tags are in reverse-chronological order; we check the first 10 and return
