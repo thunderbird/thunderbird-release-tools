@@ -671,22 +671,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "dc897dd8d9e8bd1ed8cdad82b5966c3e0ecae09fb1907d58efaa013543185d0a"
 
 [[package]]
-name = "release-cli"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "clap",
- "hg-cmdserver",
- "mach",
- "regex",
- "serde",
- "thiserror",
- "tracing",
- "tracing-subscriber",
- "ureq",
-]
-
-[[package]]
 name = "ring"
 version = "0.17.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -904,6 +888,22 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f60246a4944f24f6e018aa17cdeffb7818b76356965d03b07d6a9886e8962185"
 dependencies = [
  "cfg-if",
+]
+
+[[package]]
+name = "thunderbird-release-cli"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "clap",
+ "hg-cmdserver",
+ "mach",
+ "regex",
+ "serde",
+ "thiserror",
+ "tracing",
+ "tracing-subscriber",
+ "ureq",
 ]
 
 [[package]]

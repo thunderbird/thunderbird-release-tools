@@ -1,6 +1,10 @@
 [workspace]
 resolver = "3"
-members = ["release-cli", "hg-client", "mach"]
+members = [
+  "releases/cli/thunderbird-release",
+  "releases/cli/hg-client",
+  "releases/cli/mach",
+]
 
 [workspace.package]
 version = "0.1.0"
