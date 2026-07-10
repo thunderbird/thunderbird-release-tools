@@ -20,6 +20,24 @@ git_wrap() {
     git "$@"
 }
 
+nothing_to_commit() {
+    if [[ $(git status) == *"nothing to commit"* ]]; then
+        true
+    else
+        false
+    fi
+}
+
+hg2git () {
+    # The first parameter should be either "firefox" or "thunderbird"
+    curl -sL "https://lando.moz.tools/api/hg2git/$1/$2" | jq -r '.git_hash'
+}
+
+git2hg () {
+    # The first parameter should be either "firefox" or "thunderbird"
+    curl -sL "https://lando.moz.tools/api/git2hg/$1/$2" | jq -r '.hg_hash'
+}
+
 party_print() {
     for (( i=0; i<${#1}; i++ )); do
         COLOR="\e[1;9$(($i % 5 + 1))m"
@@ -86,25 +104,22 @@ cd ..
 
 # Get tag to pin
 git_wrap fetch -q origin
-TAGS=($(
-    git for-each-ref --sort=-creatordate --format '%(refname)' refs/tags |
-    grep -oE "($BASE_TAG|$REL_TAG_RE)"
-))
+TAGS=(
+    $(git for-each-ref --sort=creatordate --format '%(refname)' refs/tags |
+    grep -oE "($BASE_TAG|$REL_TAG_RE)")
+)
 
 if [ -z "${#TAGS[@]}" ]; then
     echo_err "No viable tags found"
     exit -1;
 fi
 
-PIN_TAG="${TAGS[0]}"
+IDX=$((${#TAGS[@]} - 1))  # Index of last tag in array
+PIN_TAG="${TAGS[$IDX]}"
 
 
 # Retrieve Mercurial revision associated with selected tag
-HG_TAG_URL="https://hg-edge.mozilla.org/mozilla-unified/raw-rev/${PIN_TAG}"
-TAG_PATCH_FILE="/tmp/tag.patch"
-curl $HG_TAG_URL > "$TAG_PATCH_FILE"
-
-PIN_REV=$(sed -nE 's/# Node ID ([a-f0-9]+)/\1/p' "$TAG_PATCH_FILE")
+PIN_REV=$(git2hg firefox $(git rev-list -n 1 $PIN_TAG))
 
 
 # Return to Thunderbird directory
@@ -112,23 +127,27 @@ cd "$GIT_ROOT"
 
 
 # Write pin tag and revision to disk
-sed -i -e "s/^GECKO_HEAD_REF:.*$/GECKO_HEAD_REF: $PIN_TAG/g" "$GECKO_REV_YML"
-sed -i -e "s/^GECKO_HEAD_REV:.*$/GECKO_HEAD_REV: $PIN_REV/g" "$GECKO_REV_YML"
-
 echo_info "pinning tag $PIN_TAG"
 echo_info "pinning revision $PIN_REV"
 
-
-# Commit version bump
-COMMIT_MSG="No bug - Pin to mozilla-$BRANCH (${PIN_TAG}/${PIN_REV:0:12}). r+a=release"
-
-git_wrap add "$GECKO_REV_YML"
-git_wrap commit -q -m "$COMMIT_MSG"
+sed -i -e "s/^GECKO_HEAD_REF:.*$/GECKO_HEAD_REF: $PIN_TAG/" "$GECKO_REV_YML"
+sed -i -e "s/^GECKO_HEAD_REV:.*$/GECKO_HEAD_REV: $PIN_REV/" "$GECKO_REV_YML"
 
 
-# Output diff
-git_wrap diff HEAD~1 HEAD
+if nothing_to_commit; then
+    echo_info "you are already pinned to the latest tag"
+else
+    # Commit version bump
+    COMMIT_MSG="No bug - Pin to mozilla-$BRANCH (${PIN_TAG}/${PIN_REV:0:12}). r+a=release"
+
+    git_wrap add "$GECKO_REV_YML"
+    git_wrap commit -q -m "$COMMIT_MSG"
 
 
-# Success
-party_print "*.^~ pinning successful! \`-*."
+    # Output diff
+    git_wrap diff HEAD~1 HEAD
+
+
+    # Success
+    party_print "*.^~ pinning successful! \`-*."
+fi
