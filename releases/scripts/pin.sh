@@ -3,21 +3,21 @@
 set -e
 
 
+echo_info() {
+    printf "%b(i)%b %b\n" "\e[1;94m" "\e[0m" "$*"
+}
+
 echo_warn() {
-    printf "%bwarning:%b %b\n" "\033[1;93m" "\033[0m" "$*" >&2
+    printf "%b/!\%b %b\n" "\e[1;93m" "\e[0m" "$*" >&2
 }
 
 echo_err() {
-    printf "%berror:%b %b\n" "\033[1;91m" "\033[0m" "$*" >&2
-}
-
-echo_info() {
-    echo -e "\e[0;36m$1\e[0m"
+    printf "%b[x]%b %b\n" "\e[1;91m" "\e[0m" "$*" >&2
 }
 
 git_wrap() {
-    echo -e "\e[0;36mrunning \e[1;96mgit $1\e[0m"
-    git "$@"
+    printf "%b  $%b %b\n%b" "\e[1;92m" "\e[0;36m" "git $1" "\e[0m"
+    git "$@" | sed 's/^/        /'
 }
 
 nothing_to_commit() {
@@ -51,7 +51,7 @@ party_print() {
 
 
 if [ ! -d ".git" ]; then
-    echo_err "Current working directory must be a git repository"
+    echo_err "current working directory must be a git repository"
     exit -1
 fi
 
@@ -145,7 +145,7 @@ else
 
 
     # Output diff
-    git_wrap diff HEAD~1 HEAD
+    git_wrap diff --color HEAD~1 HEAD
 
 
     # Success

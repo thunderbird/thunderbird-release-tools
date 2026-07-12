@@ -3,12 +3,16 @@
 set -e
 
 
+echo_info() {
+    printf "%b(i)%b %b\n" "\e[1;94m" "\e[0m" "$*"
+}
+
 echo_warn() {
-    printf "%bwarning:%b %b\n" "\e[1;93m" "\e[0m" "$*" >&2
+    printf "%b/!\%b %b\n" "\e[1;93m" "\e[0m" "$*" >&2
 }
 
 echo_err() {
-    printf "%berror:%b %b\n" "\e[1;91m" "\e[0m" "$*" >&2
+    printf "%b[x]%b %b\n" "\e[1;91m" "\e[0m" "$*" >&2
 }
 
 usage() {
@@ -19,8 +23,18 @@ usage() {
 }
 
 git_wrap() {
-    echo -e "\e[0;36mrunning \e[1;96mgit $1\e[0m"
-    git "$@"
+    printf "%b  $%b %b\n%b" "\e[1;92m" "\e[0;36m" "git $1" "\e[0m"
+    git "$@" | sed 's/^/        /'
+}
+
+hg2git () {
+    # The first parameter should be either "firefox" or "thunderbird"
+    curl -sL "https://lando.moz.tools/api/hg2git/$1/$2" | jq -r '.git_hash'
+}
+
+git2hg () {
+    # The first parameter should be either "firefox" or "thunderbird"
+    curl -sL "https://lando.moz.tools/api/git2hg/$1/$2" | jq -r '.hg_hash'
 }
 
 party_print() {
@@ -47,24 +61,48 @@ if [ -z "$APPROVER" ]; then
 fi
 
 if [ -z "$CHANGESET" ]; then
-    echo_err "Missing changeset hash"
+    echo_err "missing changeset hash"
     usage
     exit -1
 fi
 
 if ((${#CHANGESET} < 7 || ${#CHANGESET} > 40)); then
-    echo_err "Hash length is ${#HASH}; must be between 7 and 40 characters"
+    echo_err "hash length is ${#HASH}; must be between 7 and 40 characters"
     exit -1
 fi
 
 if [ ! -d ".git" ]; then
-    echo_err "Current working directory must be a git repository"
+    echo_err "current working directory must be a git repository"
     exit -1
+fi
+
+if [[ $(git cat-file -t $CHANGESET 2> /dev/null) != "commit" ]]; then
+    echo_warn "changeset not recognized by git"
+    echo_info "attempting to convert to mercurial changeset"
+
+    CHANGESET=$(hg2git thunderbird $CHANGESET)
+    if [[ "$CHANGESET" == "null" ]]; then
+        echo_err "changeset is not a valid git or mercurial hash"
+        exit -1
+    fi
 fi
 
 
 # Cherry-pick uplift commit
-git_wrap cherry-pick "$CHANGESET"
+set +e
+
+RESULT=$(git_wrap cherry-pick "$CHANGESET" 2> /dev/null)
+echo "$RESULT"
+if [[ "$RESULT" == *"nothing to commit"* ]]; then
+    echo_info "changeset already uplifted"
+
+    git cherry-pick --abort
+    echo_info "cherry-pick aborted"
+
+    exit 0
+fi
+
+set -e
 
 
 # Extract uplift commit message to temporary file
@@ -91,7 +129,7 @@ sed -i -e "1 s/ DONTBUILD//" $MSG_FILE
 
 
 # Update commit with new message
-git_wrap commit -q --amend -m "$(cat $MSG_FILE)"
+git_wrap commit --amend -m "$(cat $MSG_FILE)"
 
 
 # Success!

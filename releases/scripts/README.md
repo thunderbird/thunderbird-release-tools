@@ -21,6 +21,6 @@ Pins checkout to the latest version of Firefox on the current branch.
 
 Uplifts the specified changeset to the current checkout with the specified approver.
 
-*Currently only supports git hashes*
+*Compatible with both git and Mercurial hashes*
 
 `uplift.sh approver changeset`
