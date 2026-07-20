@@ -113,12 +113,18 @@ impl RepositoryKind {
             RepositoryKind::Comm(comm_repository) => match comm_repository {
                 CommRepository::Beta => "comm-beta".to_string(),
                 CommRepository::Release => "comm-release".to_string(),
-                CommRepository::Esr(version) => format!("comm-esr{}", version),
+                CommRepository::Esr(version) => {
+                    let parts: Vec<&str> = version.split(".").collect();
+                    format!("comm-esr{}", parts[0])
+                }
             },
             RepositoryKind::Mozilla(mozilla_repository) => match mozilla_repository {
                 MozillaRepository::Beta => "beta".to_string(),
                 MozillaRepository::Release => "release".to_string(),
-                MozillaRepository::Esr(version) => format!("esr{}", version),
+                MozillaRepository::Esr(version) => {
+                    let parts: Vec<&str> = version.split(".").collect();
+                    format!("esr{}", parts[0])
+                }
             },
         }
     }
@@ -127,16 +133,10 @@ impl RepositoryKind {
     /// Mozilla: https://hg.mozilla.org/releases/mozilla-beta
     pub fn url(&self) -> String {
         match self {
-            RepositoryKind::Comm(comm_repository) => match comm_repository {
-                CommRepository::Esr(version) => format!("{}{}{}", HG_URL, self.name(), version),
-                _ => format!("{}{}", HG_URL, self.name()),
-            },
-            RepositoryKind::Mozilla(mozilla_repository) => match mozilla_repository {
-                MozillaRepository::Esr(version) => {
-                    format!("{}mozilla-{}{}", HG_URL, self.name(), version)
-                }
-                _ => format!("{}mozilla-{}", HG_URL, self.name()),
-            },
+            RepositoryKind::Comm(_) => format!("{}{}", HG_URL, self.name()),
+            RepositoryKind::Mozilla(_) => {
+                format!("{}mozilla-{}", HG_URL, self.name())
+            }
         }
     }
 }
