@@ -16,10 +16,10 @@ echo_err() {
 }
 
 usage() {
-    echo -e "\e[1;97musage:\e[0m $(basename "$0") major|minor|patch\n"
+    printf "\e[1;97musage:\e[0m $(basename "$0") major|minor|patch\n\n"
 
-    echo -e "\e[92m100% organic\e[0m"
-    echo -e "\e[32mmade without ai\e[0m"
+    printf "\e[92m100%% organic\e[0m\n"
+    printf "\e[32mmade without ai\e[0m\n"
 }
 
 git_wrap() {
@@ -31,7 +31,7 @@ party_print() {
     for (( i=0; i<${#1}; i++ )); do
         COLOR="\e[1;9$(($i % 5 + 1))m"
 
-        echo -e -n "$COLOR${1:$i:1}"
+        printf "$COLOR${1:$i:1}"
         sleep 0.005
     done
 

@@ -42,7 +42,7 @@ party_print() {
     for (( i=0; i<${#1}; i++ )); do
         COLOR="\e[1;9$(($i % 5 + 1))m"
 
-        echo -e -n "$COLOR${1:$i:1}"
+        printf "$COLOR${1:$i:1}"
         sleep 0.005
     done
 
