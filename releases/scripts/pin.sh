@@ -69,12 +69,12 @@ GECKO_REV_YML="$GIT_ROOT/.gecko_rev.yml"
 
 
 # Get current version numbers
-VER="$(cat $VER_TXT)"
-VER_DISP="$(cat $VER_DISP_TXT)"
+VER="$(cat "$VER_TXT")"
+VER_DISP="$(cat "$VER_DISP_TXT")"
 
-
+echo "$VER_TXT"
 # Get components of version number
-IFS='.' read -r MAJOR MINOR PATCH < $VER_TXT
+IFS='.' read -r MAJOR MINOR PATCH < "$VER_TXT"
 
 if [[ "$VER_DISP" =~ [0-9]+.[0-9]+.[0-9]+([a-z]+[0-9]*) ]]; then
     SUFFIX=${BASH_REMATCH[1]}

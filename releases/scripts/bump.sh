@@ -80,7 +80,7 @@ OLD_VER_DISP="$(cat $VER_DISP_TXT)"
 
 
 # Get components of version number
-IFS='.' read -r MAJOR MINOR PATCH < $VER_TXT
+IFS='.' read -r MAJOR MINOR PATCH < "$VER_TXT"
 
 if [[ "$OLD_VER_DISP" =~ [0-9]+\.[0-9]+\.[0-9]+([a-z]+) ]]; then
     SUFFIX=${BASH_REMATCH[1]}
