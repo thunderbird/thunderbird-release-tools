@@ -16,7 +16,8 @@ echo_err() {
 }
 
 usage() {
-    printf "\e[1;97musage:\e[0m $(basename "$0") major|minor|patch\n\n"
+    printf "\e[1;97musage:\e[0m $(basename "$0") major|minor|patch\n"
+    printf "bumps the version number of current branch and commits the change\n\n"
 
     printf "\e[92m100%% organic\e[0m\n"
     printf "\e[32mmade without ai\e[0m\n"
@@ -122,7 +123,6 @@ git_wrap commit -q -m "$COMMIT_MSG"
 
 if [ $? -ne 0 ]; then
     echo_err "an unexpected error occurred"
-
     exit -1
 fi
 

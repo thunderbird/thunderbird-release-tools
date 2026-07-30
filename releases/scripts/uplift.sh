@@ -17,6 +17,7 @@ echo_err() {
 
 usage() {
     printf "\e[1;97musage:\033[0m $(basename "$0") approver [changeset|--continue]\n"
+    printf "uplifts changeset to the current checkout and adds approver\n\n"
 
     printf "\e[92m100%% organic\e[0m\n"
     printf "\e[32mmade without ai\e[0m\n"
@@ -63,15 +64,12 @@ MSG_FILE="/tmp/commit_msg.txt"
 APPROVER="$1"
 
 
-if [ ! -d ".git" ]; then
-    echo_err "current working directory must be a git repository"
-    exit -1
-fi
-
 if [ -z "$1" ]; then
     usage
-
     exit 0
+elif [ ! -d ".git" ]; then
+    echo_err "current working directory must be a git repository"
+    exit -1
 elif [ -z "$2" ]; then
     echo_err "missing changeset hash"
     usage
@@ -82,7 +80,6 @@ elif [[ "$2" == "--continue" ]]; then
 
     if ! is_cherry_picking; then
         echo_err "no cherry-pick currently in progress"
-
         exit -1
     fi
 else

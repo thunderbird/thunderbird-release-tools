@@ -145,7 +145,6 @@ else
 
     if [ $? -ne 0 ]; then
         echo_err "an unexpected error occurred"
-
         exit -1
     fi
 
