@@ -23,4 +23,4 @@ Uplifts the specified changeset to the current checkout with the specified appro
 
 *Compatible with both git and Mercurial hashes*
 
-`uplift.sh approver changeset`
+`uplift.sh approver [changeset|--continue]`

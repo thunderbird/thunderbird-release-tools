@@ -16,10 +16,10 @@ echo_err() {
 }
 
 usage() {
-    echo -e "\e[1;97musage:\e[0m $(basename "$0") major|minor|patch\n"
+    printf "\e[1;97musage:\e[0m $(basename "$0") major|minor|patch\n\n"
 
-    echo -e "\e[92m100% organic\e[0m"
-    echo -e "\e[32mmade without ai\e[0m"
+    printf "\e[92m100%% organic\e[0m\n"
+    printf "\e[32mmade without ai\e[0m\n"
 }
 
 git_wrap() {
@@ -31,7 +31,7 @@ party_print() {
     for (( i=0; i<${#1}; i++ )); do
         COLOR="\e[1;9$(($i % 5 + 1))m"
 
-        echo -e -n "$COLOR${1:$i:1}"
+        printf "$COLOR${1:$i:1}"
         sleep 0.005
     done
 
@@ -80,7 +80,7 @@ OLD_VER_DISP="$(cat $VER_DISP_TXT)"
 
 
 # Get components of version number
-IFS='.' read -r MAJOR MINOR PATCH < $VER_TXT
+IFS='.' read -r MAJOR MINOR PATCH < "$VER_TXT"
 
 if [[ "$OLD_VER_DISP" =~ [0-9]+\.[0-9]+\.[0-9]+([a-z]+) ]]; then
     SUFFIX=${BASH_REMATCH[1]}
@@ -119,6 +119,12 @@ COMMIT_MSG="No bug - Set version $NEW_VER_DISP for release. r+a=release"
 
 git_wrap add "$VER_TXT" "$VER_DISP_TXT"
 git_wrap commit -q -m "$COMMIT_MSG"
+
+if [ $? -ne 0 ]; then
+    echo_err "an unexpected error occurred"
+
+    exit -1
+fi
 
 
 # Output diff

@@ -42,7 +42,7 @@ party_print() {
     for (( i=0; i<${#1}; i++ )); do
         COLOR="\e[1;9$(($i % 5 + 1))m"
 
-        echo -e -n "$COLOR${1:$i:1}"
+        printf "$COLOR${1:$i:1}"
         sleep 0.005
     done
 
@@ -69,12 +69,12 @@ GECKO_REV_YML="$GIT_ROOT/.gecko_rev.yml"
 
 
 # Get current version numbers
-VER="$(cat $VER_TXT)"
-VER_DISP="$(cat $VER_DISP_TXT)"
+VER="$(cat "$VER_TXT")"
+VER_DISP="$(cat "$VER_DISP_TXT")"
 
 
 # Get components of version number
-IFS='.' read -r MAJOR MINOR PATCH < $VER_TXT
+IFS='.' read -r MAJOR MINOR PATCH < "$VER_TXT"
 
 if [[ "$VER_DISP" =~ [0-9]+.[0-9]+.[0-9]+([a-z]+[0-9]*) ]]; then
     SUFFIX=${BASH_REMATCH[1]}
@@ -142,6 +142,12 @@ else
 
     git_wrap add "$GECKO_REV_YML"
     git_wrap commit -q -m "$COMMIT_MSG"
+
+    if [ $? -ne 0 ]; then
+        echo_err "an unexpected error occurred"
+
+        exit -1
+    fi
 
 
     # Output diff
