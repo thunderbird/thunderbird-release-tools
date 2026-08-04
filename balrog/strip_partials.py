@@ -18,14 +18,11 @@ Examples:
     # all partials -> Thunderbird-153.0-build1-no-partials.json
     ./strip_partials.py Thunderbird-153.0-build1.json
 
-    # Windows only
+    # Windows only and add "no-win-partials" suffix to release name and output file name
     ./strip_partials.py Thunderbird-153.0-build1.json --prefix WIN --suffix no-win-partials
 
-    # explicit output path and release name
-    ./strip_partials.py in.json -o out.json --name Thunderbird-153.0-build1-no-partials
-
-    # a different platform family, edited in place
-    ./strip_partials.py blob.json --prefix Darwin --suffix no-mac-partials --in-place
+    # a different platform family
+    ./strip_partials.py blob.json --prefix Darwin --suffix no-mac-partials
 """
 
 import argparse
@@ -34,9 +31,10 @@ import sys
 from pathlib import Path
 
 
-def strip_partials(blob, prefix):
+def strip_partials(blob, prefix=""):
     """Remove "partials" from all locales of platforms starting with `prefix`.
 
+    An empty `prefix` (the default) matches every platform.
     Mutates `blob` in place. Returns (entries_removed, per_platform_report).
     """
     removed = 0
@@ -73,23 +71,13 @@ def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("input", type=Path, help="release blob to read")
-    ap.add_argument("-o", "--output", type=Path,
-                    help="output path (default: <input stem>-<suffix>.json)")
-    ap.add_argument("--in-place", action="store_true",
-                    help="overwrite the input file instead of writing a new one")
-    ap.add_argument("--prefix", default="WIN",
-                    help="strip partials from platforms starting with this (default: WIN)")
-    ap.add_argument("--suffix", default="no-win-partials",
-                    help="appended to the release name and default filename "
-                         "(default: no-win-partials)")
-    ap.add_argument("--name",
-                    help='explicit value for the blob\'s "name" field, overriding --suffix')
-    ap.add_argument("--keep-name", action="store_true",
-                    help='leave the "name" field unchanged')
+    ap.add_argument("--prefix", default="",
+                    help="only strip platforms whose name starts with this "
+                         "(default: all platforms)")
+    ap.add_argument("--suffix", default="no-partials",
+                    help="appended to the release name and the output filename "
+                         "(default: no-partials)")
     args = ap.parse_args(argv)
-
-    if args.in_place and args.output:
-        ap.error("--in-place and --output are mutually exclusive")
 
     blob = json.loads(args.input.read_text())
 
@@ -97,20 +85,16 @@ def main(argv=None):
     for line in report:
         print(line, file=sys.stderr)
     if not report:
-        print(f"warning: no platforms start with {args.prefix!r}", file=sys.stderr)
+        if args.prefix:
+            print(f"warning: no platforms start with {args.prefix!r}", file=sys.stderr)
+        else:
+            print("warning: blob has no platforms", file=sys.stderr)
 
     old_name = blob.get("name")
-    if not args.keep_name:
-        blob["name"] = args.name or (f"{old_name}-{args.suffix}" if old_name else args.suffix)
-        if blob["name"] != old_name:
-            print(f'name: {old_name!r} -> {blob["name"]!r}', file=sys.stderr)
+    blob["name"] = f"{old_name}-{args.suffix}" if old_name else args.suffix
+    print(f'name: {old_name!r} -> {blob["name"]!r}', file=sys.stderr)
 
-    if args.in_place:
-        out = args.input
-    elif args.output:
-        out = args.output
-    else:
-        out = args.input.with_name(f"{args.input.stem}-{args.suffix}.json")
+    out = args.input.with_name(f"{args.input.stem}-{args.suffix}.json")
 
     out.write_text(dump(blob))
     print(f"removed {removed} partial entries -> {out}", file=sys.stderr)
