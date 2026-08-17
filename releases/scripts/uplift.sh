@@ -102,7 +102,7 @@ else
         echo_warn "changeset not recognized by git"
         echo_info "attempting to convert to mercurial changeset"
 
-        CHANGESET=$(hg2git thunderbird $CHANGESET)
+        CHANGESET=$(hg2git thunderbird-desktop $CHANGESET)
         if [[ "$CHANGESET" == "null" ]]; then
             echo_err "changeset is not a valid git or mercurial hash"
             exit -1
