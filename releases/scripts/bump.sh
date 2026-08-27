@@ -96,6 +96,7 @@ case $VER_LVL in
 
     minor)
         MINOR=$((MINOR+1))
+        PATCH=0
         ;;
 
     patch)
