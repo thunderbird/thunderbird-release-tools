@@ -3,7 +3,9 @@
 Bumps the specified version number of the branch you are currently on, and
 commits the change.
 
-`bump.sh major|minor|patch`
+*You can check the current version by calling bump.sh with no arguments*
+
+Usage: `bump.sh major|minor|patch`
 
 
 
@@ -13,7 +15,17 @@ Pins checkout to the latest version of Firefox on the current branch.
 
 *Requires Firefox checkout*
 
-`pin.sh`
+Usage: `pin.sh`
+
+
+
+# prep.sh
+
+Switches to a branch and makes sure the working copy is synced to the branch's remote tip.
+
+*If no branch is specified, the current branch is updated instead*
+
+Usage: `prep.sh [branch]`
 
 
 
@@ -23,4 +35,4 @@ Uplifts the specified changeset to the current checkout with the specified appro
 
 *Compatible with both git and Mercurial hashes*
 
-`uplift.sh approver [changeset|--continue]`
+Usage: `uplift.sh approver [changeset|--continue]`

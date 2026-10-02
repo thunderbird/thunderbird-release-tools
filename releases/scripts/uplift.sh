@@ -40,12 +40,23 @@ is_cherry_picking() {
 
 hg2git () {
     # The first parameter should be either "firefox" or "thunderbird"
-    curl -sL "https://lando.moz.tools/api/hg2git/$1/$2" | jq -r '.git_hash'
+    declare -A REPO_MAP
+    REPO_MAP[firefox]="mozilla-unified"
+    REPO_MAP[thunderbird]="comm-unified"
+
+    JSON=$(curl -sL "https://hg-edge.mozilla.org/${REPO_MAP[$1]}/json-pushes?changeset=$2" | jq -r "to_entries[].value")
+    IDX=$(jq -r ".changesets|to_entries[]|select(.value|startswith(\"$2\"))|.key" <<< "$JSON")
+    
+    jq -r ".git_changesets[$IDX]" <<< "$JSON"
 }
 
 git2hg () {
     # The first parameter should be either "firefox" or "thunderbird"
-    curl -sL "https://lando.moz.tools/api/git2hg/$1/$2" | jq -r '.hg_hash'
+    declare -A REPO_MAP
+    REPO_MAP[firefox]="firefox"
+    REPO_MAP[thunderbird]="thunderbird-desktop"
+
+    curl -sL "https://lando.moz.tools/api/git2hg/${REPO_MAP[$1]}/$2" | jq -r '.hg_hash'
 }
 
 party_print() {
@@ -100,9 +111,9 @@ else
 
     if [[ $(git cat-file -t $CHANGESET 2> /dev/null) != "commit" ]]; then
         echo_warn "changeset not recognized by git"
-        echo_info "attempting to convert to mercurial changeset"
+        echo_info "attempting to convert to git changeset"
 
-        CHANGESET=$(hg2git thunderbird-desktop $CHANGESET)
+        CHANGESET=$(hg2git thunderbird $CHANGESET)
         if [[ "$CHANGESET" == "null" ]]; then
             echo_err "changeset is not a valid git or mercurial hash"
             exit -1

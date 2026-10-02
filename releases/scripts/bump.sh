@@ -20,7 +20,9 @@ usage() {
     printf "bumps the version number of current branch and commits the change\n\n"
 
     printf "\e[92m100%% organic\e[0m\n"
-    printf "\e[32mmade without ai\e[0m\n"
+    printf "\e[32mmade without ai\e[0m\n\n"
+
+    echo_info "the current version is $(cat mail/config/version_display.txt)"
 }
 
 git_wrap() {
@@ -92,6 +94,8 @@ fi
 case $VER_LVL in
     major)
         MAJOR=$((MAJOR+1))
+        MINOR=0
+        PATCH=0
         ;;
 
     minor)
