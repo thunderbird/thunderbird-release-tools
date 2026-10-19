@@ -37,6 +37,13 @@ if ! git rev-parse --is-inside-work-tree > /dev/null 2>&1; then
     exit -1
 fi
 
+# Warn if not in repo root
+if [ ! "$PWD" = "$(git rev-parse --show-toplevel)" ]; then
+    echo_warn "You are not currently in your repo root"
+    echo_info "Change to repo root using:"
+    echo_info "\n\tcd $(git rev-parse --show-toplevel)\n"
+fi
+
 
 # Fetch origin
 git_wrap fetch origin
