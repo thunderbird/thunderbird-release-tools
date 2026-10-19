@@ -78,7 +78,7 @@ APPROVER="$1"
 if [ -z "$1" ]; then
     usage
     exit 0
-elif [ ! -d ".git" ]; then
+elif ! git rev-parse --is-inside-work-tree > /dev/null 2>&1; then
     echo_err "current working directory must be a git repository"
     exit -1
 elif [ -z "$2" ]; then
