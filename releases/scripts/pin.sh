@@ -68,6 +68,13 @@ VER_DISP_TXT="$GIT_ROOT/mail/config/version_display.txt"
 GECKO_REV_YML="$GIT_ROOT/.gecko_rev.yml"
 
 
+# Verify that GECKO_HEAD_REV is not commented out
+if ! grep -qG "^[[:space:]]*GECKO_HEAD_REV:" "$GECKO_REV_YML"; then
+    echo_err GECKO_HEAD_REV is commented out in .gecko_rev.yml
+    exit -1
+fi
+
+
 # Get current version numbers
 VER="$(cat "$VER_TXT")"
 VER_DISP="$(cat "$VER_DISP_TXT")"
