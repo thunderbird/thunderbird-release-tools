@@ -1,1 +1,6 @@
 target/
+
+# Python (tb-release)
+.venv/
+__pycache__/
+dist/
