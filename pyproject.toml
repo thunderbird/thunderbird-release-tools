@@ -4,7 +4,9 @@ version = "0.1.0"
 description = "Thunderbird release engineering tools"
 readme = "README.md"
 requires-python = ">=3.11"
-dependencies = []
+dependencies = [
+    "matplotlib",  # on-schedule
+]
 
 [project.scripts]
 tb-release = "tb_release.cli:main"
@@ -21,3 +23,4 @@ packages = ["tb_release"]
 [tool.hatch.build.targets.wheel.force-include]
 "releases/scripts" = "tb_release/scripts/releases/scripts"
 "balrog" = "tb_release/scripts/balrog"
+"reports" = "tb_release/scripts/reports"

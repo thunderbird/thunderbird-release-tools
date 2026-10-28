@@ -19,6 +19,8 @@ COMMANDS = {
                "Uplift a changeset to the current checkout with an approver"),
     "strip-partials": ("balrog/strip_partials.py",
                        "Strip partial updates from a Balrog release blob"),
+    "on-schedule": ("reports/on-schedule/on-schedule.py",
+                    "Report how often desktop releases ship on schedule"),
 }
 
 
