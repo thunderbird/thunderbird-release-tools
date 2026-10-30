@@ -31,7 +31,7 @@ This writes two files to the current directory:
 | `--start-date`, `--end-date` | Only releases scheduled in this range (`YYYY-MM-DD`, inclusive) |
 | `--missing` | List shipped releases that aren't on the calendar |
 | `--timezone` | Time zone for ship dates, e.g. `UTC` (default `America/New_York`) |
-| `--jekyll` | Write `on-schedule.html` as a page for a Jekyll site (for publishing to thunderbird-release-docs |
+| `--jekyll` | Write `on-schedule.html` as a page for a Jekyll site (for publishing to thunderbird-release-docs) |
 
 ## Data sources
 

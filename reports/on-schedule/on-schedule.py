@@ -42,6 +42,23 @@ TEXT, TEXT2, GRID, SURFACE = "#1a1838", "#52507c", "#e4e4e7", "#fafafa"
 TITLE = "Thunderbird desktop releases shipped on schedule"
 YEARLY = "#71717a"
 
+# Chart sizes: wide for a standalone page (up to 1400px), and smaller for the
+# docs site's narrower content column (--jekyll), so its text stays legible.
+PAGE_LAYOUT = {
+    "figsize": (14, 8.6), "dpi": 150, "font": 10, "title": 11,
+    "title_pad": None, "year_title": 10, "label": 9, "footnote": 8,
+    "footnote_break": " ", "bottom": 0.02,
+    "legend": {"loc": "lower left", "fontsize": 9},
+}
+JEKYLL_LAYOUT = {
+    "figsize": (9.3, 7), "dpi": 200, "font": 11, "title": 12,
+    "title_pad": 26, "year_title": 12, "label": 10, "footnote": 9,
+    "footnote_break": "\n", "bottom": 0.04,
+    # Above the chart, in one row, so it never covers a line.
+    "legend": {"loc": "lower left", "bbox_to_anchor": (0, 1), "ncol": 3,
+               "fontsize": 10, "borderaxespad": 0, "handlelength": 1.5},
+}
+
 
 def fetch(url):
     """Return the body of url as text; raise on any HTTP or network error."""
@@ -244,7 +261,7 @@ def find_missing(sched, actual, start, end):
                   and (end is None or d <= end))
 
 
-def plot(rows, out, tz_label):
+def plot(rows, out, tz_label, layout=PAGE_LAYOUT):
     """Write the graph to a PNG file.
 
     Args:
@@ -252,6 +269,7 @@ def plot(rows, out, tz_label):
             each release that is both scheduled and shipped.
         out: Path of the PNG to write.
         tz_label: Name of the time zone of actual dates, for the footnote.
+        layout: PAGE_LAYOUT or JEKYLL_LAYOUT.
     """
     import matplotlib
     matplotlib.use("Agg")
@@ -259,10 +277,10 @@ def plot(rows, out, tz_label):
 
     quarters = sorted({quarter(r[2]) for r in rows})
     years = sorted({r[2].year for r in rows})
-    plt.rcParams.update({"font.size": 10, "axes.edgecolor": GRID,
+    plt.rcParams.update({"font.size": layout["font"], "axes.edgecolor": GRID,
                          "xtick.color": TEXT2, "ytick.color": TEXT2})
     fig, (quarter_ax, year_ax) = plt.subplots(
-        2, 1, figsize=(14, 8.6), height_ratios=(3, 1.5), facecolor=SURFACE)
+        2, 1, figsize=layout["figsize"], height_ratios=(3, 1.5), facecolor=SURFACE)
 
     # Top chart: one line per channel, % on time by scheduled quarter.
     for name, color in CHANNELS:
@@ -282,12 +300,12 @@ def plot(rows, out, tz_label):
                   f"of {channel_total})")
 
     quarter_ax.set_title("Shipped on (or before) the scheduled day",
-                         loc="left", color=TEXT, fontsize=11)
+                         loc="left", color=TEXT, fontsize=layout["title"],
+                         pad=layout["title_pad"])
     quarter_ax.set_xticks(range(len(quarters)))
     quarter_ax.set_xticklabels(quarters, rotation=45, ha="right")
     quarter_ax.set_xlim(-0.5, len(quarters) - 0.5)
-    quarter_ax.legend(loc="lower left", frameon=False, fontsize=9,
-                      labelcolor=TEXT2)
+    quarter_ax.legend(frameon=False, labelcolor=TEXT2, **layout["legend"])
 
     # Yearly chart: share on time across all channels. Pooled over releases, not
     # an average of the quarterly points, so sparse quarters don't count extra.
@@ -302,11 +320,11 @@ def plot(rows, out, tz_label):
     bars = year_ax.bar(range(len(years)), pcts, width=0.6, color=YEARLY,
                        zorder=3)
     year_ax.bar_label(bars, labels=[f"{p:.0f}%" for p in pcts], padding=3,
-                  color=TEXT, fontsize=9)
+                  color=TEXT, fontsize=layout["label"])
     year_ax.set_xticks(range(len(years)))
-    year_ax.set_xticklabels(labels, fontsize=9)
+    year_ax.set_xticklabels(labels, fontsize=layout["label"])
     year_ax.set_title("By year, all channels", loc="left", color=TEXT,
-                  fontsize=10)
+                  fontsize=layout["year_title"])
 
     # Style shared by both charts.
     for chart in (quarter_ax, year_ax):
@@ -325,12 +343,12 @@ def plot(rows, out, tz_label):
     year_ax.set_ylabel("By scheduled year", color=TEXT2)
     fig.text(0.01, 0.005,
              "Scheduled: Thunderbird release calendar. Actual: product-details "
-             f"ship time as a {tz_label} date. Versions "
-             "scheduled but never shipped are excluded.",
-             fontsize=8, color=TEXT2)
+             f"ship time as a {tz_label} date.{layout['footnote_break']}"
+             "Versions scheduled but never shipped are excluded.",
+             fontsize=layout["footnote"], color=TEXT2)
 
-    fig.tight_layout(rect=(0, 0.02, 1, 1), h_pad=2)
-    fig.savefig(out, dpi=150, facecolor=SURFACE)
+    fig.tight_layout(rect=(0, layout["bottom"], 1, 1), h_pad=2)
+    fig.savefig(out, dpi=layout["dpi"], facecolor=SURFACE)
 
 
 PAGE_HEAD = """<!doctype html>
@@ -479,7 +497,7 @@ def main():
         for d, v in missing:
             print(f"  {v:<10} {channel(v):<7} shipped {d}")
 
-    plot(rows, OUT, tz_label)
+    plot(rows, OUT, tz_label, JEKYLL_LAYOUT if args.jekyll else PAGE_LAYOUT)
     write_html(HTML_OUT, OUT, rows, missing, sched_info, actual_info,
                args.jekyll)
     print(f"wrote {OUT} and {HTML_OUT}")
