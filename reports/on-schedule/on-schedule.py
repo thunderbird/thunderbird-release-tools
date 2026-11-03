@@ -365,8 +365,23 @@ PAGE_HEAD = """<!doctype html>
   table {{ border-collapse: collapse; font-variant-numeric: tabular-nums; }}
   th, td {{ padding: 0.2em 1em 0.2em 0; text-align: left; }}
   th {{ border-bottom: 1px solid {grid}; }}
-  td.n {{ text-align: right; }}
   a {{ color: inherit; }}
+</style>
+"""
+
+# Tabs without JavaScript: a radio button per tab, each showing its panel
+# when checked. Used by both the standalone page and the Jekyll page.
+TABS_STYLE = """<style>
+  td.n {{ text-align: right; }}
+  .tabs > input {{ position: absolute; opacity: 0; }}
+  .tabs > label {{ display: inline-block; padding: 0.4em 1em;
+                  cursor: pointer; border-bottom: 2px solid transparent; }}
+  .tabs > input:checked + label {{ border-bottom-color: currentColor;
+                                  font-weight: 600; }}
+  .tabs > input:focus-visible + label {{ outline: 2px solid; }}
+  .tabs > section {{ display: none; border-top: 1px solid {grid};
+                    padding-top: 0.5em; }}
+  {panel_rules} {{ display: block; }}
 </style>
 """
 
@@ -375,30 +390,36 @@ JEKYLL_HEAD = """---
 layout: default
 title: {title}
 ---
-<style>td.n {{ text-align: right; }}</style>
 """
 
 PAGE_BODY = """<h1>{title}</h1>
 <img src="{png}" alt="{title}">
 <h2>Releases</h2>
-<p>By channel, then scheduled date. Days late: negative is early.</p>
-<table>
-<tr><th>Version</th><th>Channel</th><th>Scheduled</th><th>Actual</th>
-<th>Days late</th></tr>
-{rows}
-</table>
-<h2>Shipped but not on the calendar</h2>
-<p>No scheduled date, so not counted above.</p>
-<table>
-<tr><th>Version</th><th>Channel</th><th>Shipped</th></tr>
-{missing}
-</table>
+<p>Scheduled dates link to the calendar event, actual dates to the release's
+product-details record.</p>
+<div class="tabs">
+{tabs}
+</div>
 <p>Generated {today}</p>
 """
 
+CHANNEL_PANEL = """<p>By {order}. Days late: negative is early.</p>
+<table>
+<tr><th>Version</th><th>Scheduled</th><th>Actual</th><th>Days late</th></tr>
+{rows}
+</table>"""
+
+MISSING_PANEL = """<p>Shipped but not on the calendar: no scheduled date, so not
+counted in the graph.</p>
+<table>
+<tr><th>Version</th><th>Channel</th><th>Shipped</th></tr>
+{rows}
+</table>"""
+
 
 def write_html(out, png, rows, missing, sched_info, actual_info, jekyll=False):
-    """Write the HTML page: the graph, then a table of every release.
+    """Write the HTML page: the graph, then a tab per channel with a table of
+    its releases, and a tab of releases missing from the calendar.
 
     Args:
         out: Path of the HTML file to write.
@@ -429,19 +450,43 @@ def write_html(out, png, rows, missing, sched_info, actual_info, jekyll=False):
             return (order.index(chan), version_parts, scheduled)
         return (order.index(chan), (), scheduled, version)
 
-    body = [
-        f"<tr><td>{v.removesuffix('esr')}</td><td>{ch}</td>"
-        f"<td>{link(s, sched_info[v][1])}</td>"
-        f"<td>{link(a, actual_info[v][1])}</td>"
-        f'<td class="n">{late:+d}</td></tr>'.replace(">+0<", ">0<")
-        for v, ch, s, a, late in sorted(rows, key=sort_key)]
+    # (id, label, panel) for each tab; channels with no releases get none.
+    tabs = []
+    for chan in order:
+        body = [
+            f"<tr><td>{v.removesuffix('esr')}</td>"
+            f"<td>{link(s, sched_info[v][1])}</td>"
+            f"<td>{link(a, actual_info[v][1])}</td>"
+            f'<td class="n">{late:+d}</td></tr>'.replace(">+0<", ">0<")
+            for v, ch, s, a, late in sorted(rows, key=sort_key) if ch == chan]
+        if body:
+            by = ("version, then scheduled date" if chan == "ESR"
+                  else "scheduled date")
+            tabs.append((chan.lower(), f"{chan} ({len(body)})",
+                         CHANNEL_PANEL.format(order=by,
+                                              rows="\n".join(body))))
     extra = [f"<tr><td>{v.removesuffix('esr')}</td><td>{channel(v)}</td>"
              f"<td>{link(d, actual_info[v][1])}</td></tr>"
              for d, v in missing]
+    tabs.append(("missing", f"Not on calendar ({len(extra)})",
+                 MISSING_PANEL.format(rows="\n".join(extra))))
+
+    # Radio buttons and labels first, then the panels, so CSS can select
+    # each checked button's panel as a later sibling.
+    tab_html = [
+        f'<input type="radio" name="tab" id="tab-{tab_id}"'
+        f'{" checked" if i == 0 else ""}>'
+        f'<label for="tab-{tab_id}">{label}</label>'
+        for i, (tab_id, label, _) in enumerate(tabs)]
+    tab_html += [f'<section id="panel-{tab_id}">\n{panel}\n</section>'
+                 for tab_id, _, panel in tabs]
+    panel_rules = ",\n  ".join(f"#tab-{tab_id}:checked ~ #panel-{tab_id}"
+                               for tab_id, _, _ in tabs)
     with open(out, "w", encoding="utf-8") as f:
-        f.write(((JEKYLL_HEAD if jekyll else PAGE_HEAD) + PAGE_BODY).format(
-            title=TITLE, today=date.today(),
-            png=png, rows="\n".join(body), missing="\n".join(extra),
+        f.write(((JEKYLL_HEAD if jekyll else PAGE_HEAD) + TABS_STYLE
+                 + PAGE_BODY).format(
+            title=TITLE, today=date.today(), png=png,
+            tabs="\n".join(tab_html), panel_rules=panel_rules,
             text=TEXT, text2=TEXT2, grid=GRID, surface=SURFACE))
 
 

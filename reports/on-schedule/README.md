@@ -22,9 +22,10 @@ tb-release on-schedule
 This writes two files to the current directory:
 
 - `on-schedule.png`: the graph
-- `on-schedule.html`: a page with the graph and a table of every release, where
-  each scheduled date links to its calendar event and each actual date to its
-  product-details record. It also lists shipped releases missing from the calendar.
+- `on-schedule.html`: a page with the graph and a tab per channel (Beta,
+  Release, ESR) with a table of its releases, where each scheduled date links
+  to its calendar event and each actual date to its product-details record. A
+  last tab lists shipped releases missing from the calendar.
 
 | Option | Effect |
 |---|---|
