@@ -24,3 +24,4 @@ uv tool install git+https://github.com/thunderbird/thunderbird-release-tools
 |`tb-release uplift`|Uplifts the specified changeset to the current checkout with the specified approver.|`tb-release`|
 |`tb-release strip-partials`|Strips partial updates from a Balrog release blob.|`tb-release`|
 |`tb-release on-schedule`|Generates a report on how often desktop releases ship on schedule.|`tb-release`|
+|`tb-release bugzilla-queries`|Generates a page of Bugzilla queries for release management.|`tb-release`|
