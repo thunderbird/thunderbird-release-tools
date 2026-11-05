@@ -54,6 +54,11 @@ fi
 
 FROM=$1; TO=$2; REV=${3:-}
 
+if ! git diff --quiet || ! git diff --cached --quiet; then
+    echo_err "Uncommitted changes in the working tree; commit or stash them first."
+    exit 1
+fi
+
 git fetch origin
 PRE=$(git rev-parse "origin/$TO")        # destination before the merge
 if [[ -n "$REV" ]]; then
@@ -89,12 +94,23 @@ if [ "$(git rev-parse "origin/$TO")" = "$PRE" ] ||
     exit 1
 fi
 
-# Fixup on top of Lando's merge, on a scratch branch
-git switch -C tb-merge-fixup "origin/$TO"
-git checkout "$PRE" -- .gecko_rev.yml
-if git diff --cached --quiet; then
+if git diff --quiet "$PRE" "origin/$TO" -- .gecko_rev.yml; then
     echo_info ".gecko_rev.yml unchanged by merge; no fixup needed."
     exit 0
 fi
-git commit -m "No Bug - Restore $TO .gecko_rev.yml after merge from $FROM"
+
+# Fixup on top of Lando's merge, on a scratch branch
+git switch -C tb-merge-fixup "origin/$TO"
+trap 'echo_warn "Stopped on branch tb-merge-fixup; run git switch - to return."' ERR
+git checkout "$PRE" -- .gecko_rev.yml
+git commit -m "No Bug - Restore $TO .gecko_rev.yml after merge from $FROM" -- .gecko_rev.yml
 lando push-commits --lando-repo "staging-thunderbird-$TO" --branch tb-merge-fixup
+
+# As above, lando exits 0 even if the job failed
+git fetch origin
+if ! git diff --quiet "$PRE" "origin/$TO" -- .gecko_rev.yml; then
+    echo_err "Fixup did not land; check the Lando job. The fixup commit is on tb-merge-fixup."
+    exit 1
+fi
+trap - ERR
+git switch -
