@@ -48,13 +48,18 @@ EOF
 case "${1:-}" in
     -h|--help) usage; exit 0 ;;
 esac
-if [[ $# -lt 2 ]]; then
-    usage >&2; exit 1
-fi
+case "${1:-}" in
+    main)
+       if [[ "${2:-}" != autoland ]]; then usage; exit 0; fi ;;
+    autoland)
+       if [[ "${2:-}" != main ]]; then usage; exit 0; fi ;;
+    *) usage; exit 0 ;;
+esac
 
 FROM=$1; TO=$2; REV=${3:-}
+REPO="thunderbird-desktop"
 
-if ! git diff --quiet || ! git diff --cached --quiet; then
+if ! git diff-index --quiet HEAD; then
     echo_err "Uncommitted changes in the working tree; commit or stash them first."
     exit 1
 fi
@@ -83,7 +88,7 @@ else
     TARGET=$(git rev-parse "origin/$FROM")
 fi
 
-lando push-merge --lando-repo "staging-thunderbird-$TO" \
+lando push-merge --lando-repo "$REPO-$TO" \
     --target-commit "$TARGET" --commit-message "Merge $FROM to $TO"
 
 # lando exits 0 even if the job failed, so verify it landed
@@ -104,7 +109,7 @@ git switch -C tb-merge-fixup "origin/$TO"
 trap 'echo_warn "Stopped on branch tb-merge-fixup; run git switch - to return."' ERR
 git checkout "$PRE" -- .gecko_rev.yml
 git commit -m "No Bug - Restore $TO .gecko_rev.yml after merge from $FROM" -- .gecko_rev.yml
-lando push-commits --lando-repo "staging-thunderbird-$TO" --branch tb-merge-fixup
+lando push-commits --lando-repo "$REPO-$TO" --branch tb-merge-fixup
 
 # As above, lando exits 0 even if the job failed
 git fetch origin
