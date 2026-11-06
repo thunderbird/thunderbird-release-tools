@@ -7,8 +7,6 @@ commits the change.
 
 Usage: `bump.sh major|minor|patch`
 
-
-
 # pin.sh
 
 Pins checkout to the latest version of Firefox on the current branch.
@@ -16,8 +14,6 @@ Pins checkout to the latest version of Firefox on the current branch.
 *Requires Firefox checkout*
 
 Usage: `pin.sh`
-
-
 
 # prep.sh
 
@@ -27,8 +23,6 @@ Switches to a branch and makes sure the working copy is synced to the branch's r
 
 Usage: `prep.sh [branch]`
 
-
-
 # uplift.sh
 
 Uplifts the specified changeset to the current checkout with the specified approver.
@@ -36,3 +30,14 @@ Uplifts the specified changeset to the current checkout with the specified appro
 *Compatible with both git and Mercurial hashes*
 
 Usage: `uplift.sh approver [changeset|--continue]`
+
+# changes-since-pin.sh
+
+Lists the Firefox changes that landed on the pinned branch after the revision in
+`.gecko_rev.yml`, so the release engineer can decide whether another build is needed
+(e.g. a new beta after pinning the final beta to tip).
+
+*Requires Firefox checkout, `curl` and `jq`*
+
+Usage: `changes-since-pin.sh`
+
