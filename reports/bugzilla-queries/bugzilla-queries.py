@@ -657,11 +657,17 @@ def render_html(output_file, versions, tabs, jekyll=False):
     panel_rules = ",\n  ".join(
         f"#tab-{tab.id}:checked ~ #panel-{tab.id}" for tab in tabs
     )
-    version_text = (
-        f"Daily {versions['daily']}, beta {versions['beta']}, "
-        f"release {versions['release']}, ESR {versions['esr']}"
-        + (f", ESR next {versions['esr_next']}" if versions["esr_next"] else "")
-        + "."
+    version_rows = [
+        ("Daily", versions["daily"]),
+        ("Beta", versions["beta"]),
+        ("Release", versions["release"]),
+        ("ESR", versions["esr"]),
+    ]
+    if versions["esr_next"]:
+        version_rows.append(("ESR next", versions["esr_next"]))
+    version_html = "<br>\n".join(
+        f"{html.escape(label)}: {html.escape(version)}"
+        for label, version in version_rows
     )
     if jekyll:
         template = JEKYLL_HEAD + TABS_STYLE + PAGE_BODY
@@ -671,7 +677,7 @@ def render_html(output_file, versions, tabs, jekyll=False):
         file.write(
             template.format(
                 title=TITLE,
-                versions=html.escape(version_text),
+                versions=version_html,
                 tabs="\n".join(tab_html),
                 generated=date.today(),
                 panel_rules=panel_rules,
