@@ -27,5 +27,5 @@ packages = ["tb_release"]
 [tool.hatch.build.targets.wheel.force-include]
 "releases/scripts" = "tb_release/scripts/releases/scripts"
 "releases/schedule" = "tb_release/scripts/releases/schedule"
-"balrog" = "tb_release/scripts/balrog"
+"releases/balrog" = "tb_release/scripts/releases/balrog"
 "reports" = "tb_release/scripts/reports"
