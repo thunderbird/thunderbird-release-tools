@@ -3,7 +3,7 @@ name = "tb-release"
 version = "0.1.0"
 description = "Thunderbird release engineering tools"
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = ">=3.12"
 dependencies = [
     "google-api-python-client",  # schedule --write-calendar
     "google-auth-httplib2",  # schedule --write-calendar
