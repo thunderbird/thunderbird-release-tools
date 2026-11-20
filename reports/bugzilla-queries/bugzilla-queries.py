@@ -25,14 +25,6 @@ THUNDERBIRD_PRODUCTS = [
     "Enterprise Products",
 ]
 
-ALL_CLASSIFICATIONS = [
-    "Client Software",
-    "Developer Infrastructure",
-    "Components",
-    "Server Software",
-    "Other",
-]
-
 # Columns shown on the "approved but not yet uplifted" lists, before the
 # channel-specific status columns.
 APPROVAL_COLUMNS = [
@@ -337,7 +329,7 @@ def _approved_but_not_yet_uplifted(approval, status_field, status_columns, extra
                 Match("keywords", "substring", "leave-open"),
             ),
         ),
-        classification=ALL_CLASSIFICATIONS,
+        product=THUNDERBIRD_PRODUCTS,
         columnlist=",".join(APPROVAL_COLUMNS + status_columns),
         resolution=["---", "FIXED"],
     )
@@ -390,7 +382,7 @@ def esr_uplift_requests(esr, beta):
             Match("flagtypes.name", "equals", f"approval-comm-esr{esr}?"),
             Match(esr_status_field(esr), "notequals", "fixed"),
         ),
-        classification=ALL_CLASSIFICATIONS,
+        product=THUNDERBIRD_PRODUCTS,
         columnlist=",".join(
             APPROVAL_COLUMNS + [status_field(beta), esr_status_field(esr)]
         ),
