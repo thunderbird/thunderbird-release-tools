@@ -220,7 +220,6 @@ def non_esr_potential_uplifts(channel, fixed_in, affects, regression):
     return buglist_url(
         all_of(
             Match("short_desc", "nowordssubstr", "intermit"),
-            Match("component", "nowordssubstr", "upstream build test theme add-on"),
             Match("target_milestone", "substring", fixed_in),
             Match(status_field(affects), "equals", "affected"),
             Match("flagtypes.name", "equals", f"approval-comm-{channel}?", negate=True),
@@ -237,7 +236,6 @@ def esr_potential_uplifts(esr, fixed_in, regression):
     ESR uplift requested."""
     return buglist_url(
         all_of(
-            Match("component", "nowordssubstr", "upstream"),
             Match(esr_status_field(esr), "nowordssubstr", ESR_HANDLED_STATUSES),
             Match("target_milestone", "anywordssubstr", fixed_in),
             Match("flagtypes.name", "equals", f"approval-comm-esr{esr}?", negate=True),
