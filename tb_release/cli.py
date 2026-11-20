@@ -37,6 +37,10 @@ COMMANDS = {
         "releases/balrog/strip_partials.py",
         "Strip partial updates from a Balrog release blob",
     ),
+    "check-langpacks": (
+        "releases/atn/check_langpacks.py",
+        "Check the brand name and version of language packs that ATN offers",
+    ),
     "on-schedule": (
         "reports/on-schedule/on-schedule.py",
         "Report how often desktop releases ship on schedule",

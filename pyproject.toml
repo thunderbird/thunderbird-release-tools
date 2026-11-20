@@ -28,4 +28,5 @@ packages = ["tb_release"]
 "releases/scripts" = "tb_release/scripts/releases/scripts"
 "releases/schedule" = "tb_release/scripts/releases/schedule"
 "releases/balrog" = "tb_release/scripts/releases/balrog"
+"releases/atn" = "tb_release/scripts/releases/atn"
 "reports" = "tb_release/scripts/reports"
