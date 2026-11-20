@@ -665,7 +665,7 @@ def render_html(output_file, versions, tabs, jekyll=False):
     ]
     if versions["esr_next"]:
         version_rows.append(("ESR next", versions["esr_next"]))
-    version_html = "<br>\n".join(
+    version_html = " | ".join(
         f"{html.escape(label)}: {html.escape(version)}"
         for label, version in version_rows
     )
