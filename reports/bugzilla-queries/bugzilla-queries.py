@@ -25,9 +25,9 @@ THUNDERBIRD_PRODUCTS = [
     "Enterprise Products",
 ]
 
-# Columns shown on the "approved but not yet uplifted" lists, before the
-# channel-specific status columns.
-APPROVAL_COLUMNS = [
+# Columns shown on the uplift request, approved and potential uplift lists,
+# before the channel-specific status columns.
+UPLIFT_COLUMNS = [
     "bug_type",
     "short_desc",
     "product",
@@ -44,9 +44,6 @@ APPROVAL_COLUMNS = [
     "keywords",
     "target_milestone",
 ]
-
-# Status flag values meaning an ESR uplift has already been dealt with.
-ESR_HANDLED_STATUSES = "fixed wontfix verified unaffected"
 
 
 def thunderbird_versions():
@@ -219,12 +216,14 @@ def non_esr_potential_uplifts(channel, fixed_in, affects, regression):
     to channel (beta or release) requested."""
     return buglist_url(
         all_of(
-            Match("short_desc", "nowordssubstr", "intermit"),
             Match("target_milestone", "substring", fixed_in),
             Match(status_field(affects), "equals", "affected"),
             Match("flagtypes.name", "equals", f"approval-comm-{channel}?", negate=True),
         ),
         product=THUNDERBIRD_PRODUCTS,
+        columnlist=",".join(
+            UPLIFT_COLUMNS + [status_field(fixed_in), status_field(affects)]
+        ),
         resolution="FIXED",
         order="bug_id",
         **regression_filter(regression),
@@ -232,16 +231,22 @@ def non_esr_potential_uplifts(channel, fixed_in, affects, regression):
 
 
 def esr_potential_uplifts(esr, fixed_in, regression):
-    """Bugs fixed in fixed_in whose ESR status hasn't been dealt with, with no
-    ESR uplift requested."""
+    """Bugs fixed in fixed_in that are marked affected for the ESR (either
+    status-thunderbird_esr<esr> or status-thunderbird<esr>), with no ESR
+    uplift requested."""
     return buglist_url(
         all_of(
-            Match(esr_status_field(esr), "nowordssubstr", ESR_HANDLED_STATUSES),
+            any_of(
+                Match(esr_status_field(esr), "equals", "affected"),
+                Match(status_field(esr), "equals", "affected"),
+            ),
             Match("target_milestone", "anywordssubstr", fixed_in),
             Match("flagtypes.name", "equals", f"approval-comm-esr{esr}?", negate=True),
-            Match(status_field(esr), "nowordssubstr", ESR_HANDLED_STATUSES),
         ),
         product=THUNDERBIRD_PRODUCTS,
+        columnlist=",".join(
+            UPLIFT_COLUMNS + [status_field(esr), esr_status_field(esr)]
+        ),
         resolution="FIXED",
         order="component",
         **regression_filter(regression),
@@ -328,7 +333,7 @@ def _approved_but_not_yet_uplifted(approval, status_field, status_columns, extra
             ),
         ),
         product=THUNDERBIRD_PRODUCTS,
-        columnlist=",".join(APPROVAL_COLUMNS + status_columns),
+        columnlist=",".join(UPLIFT_COLUMNS + status_columns),
         resolution=["---", "FIXED"],
     )
 
@@ -368,7 +373,7 @@ def non_esr_uplift_requests(channel, version, status_columns):
             Match(status_field(version), "notsubstring", "fixed"),
         ),
         product=THUNDERBIRD_PRODUCTS,
-        columnlist=",".join(APPROVAL_COLUMNS + status_columns),
+        columnlist=",".join(UPLIFT_COLUMNS + status_columns),
         resolution=["---", "FIXED", "DUPLICATE"],
     )
 
@@ -382,7 +387,7 @@ def esr_uplift_requests(esr, beta):
         ),
         product=THUNDERBIRD_PRODUCTS,
         columnlist=",".join(
-            APPROVAL_COLUMNS + [status_field(beta), esr_status_field(esr)]
+            UPLIFT_COLUMNS + [status_field(beta), esr_status_field(esr)]
         ),
         resolution=["---", "FIXED", "DUPLICATE"],
     )
@@ -520,9 +525,9 @@ def esr_tab(esr, versions, sec_columns=None):
             ),
         ],
         potential_caption=(
-            f"Bugs fixed in each version that may affect {esr}esr: the esr{esr} "
-            "status isn't fixed, wontfix, verified or unaffected, and there's no "
-            f"approval-comm-esr{esr}? request."
+            f"Bugs fixed in each version that affect {esr}esr: the esr{esr} or "
+            f"{esr} status is affected, and there's no approval-comm-esr{esr}? "
+            "request."
         ),
         potential_column="Fixed in",
         potential=[
