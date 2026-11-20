@@ -29,6 +29,10 @@ COMMANDS = {
         "releases/scripts/changes-since-pin.sh",
         "List Firefox changes that landed since the pinned revision",
     ),
+    "schedule": (
+        "releases/schedule/thunderbird_schedule.py",
+        "Generate a release schedule; optionally write it to Calendar/Notion",
+    ),
     "strip-partials": (
         "balrog/strip_partials.py",
         "Strip partial updates from a Balrog release blob",

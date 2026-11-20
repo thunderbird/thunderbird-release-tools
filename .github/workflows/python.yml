@@ -6,11 +6,15 @@ on:
     paths:
       - 'pyproject.toml'
       - 'uv.lock'
+      - 'releases/schedule/**'
+      - '.github/workflows/python.yml'
   pull_request:
     branches: [ "main" ]
     paths:
       - 'pyproject.toml'
       - 'uv.lock'
+      - 'releases/schedule/**'
+      - '.github/workflows/python.yml'
 
 permissions: {}
 
@@ -29,3 +33,18 @@ jobs:
         enable-cache: false
     - name: Check lock file
       run: uv lock --check
+
+  schedule-tests:
+    name: Run schedule tests
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read # Required to checkout the repository.
+    steps:
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      with:
+        persist-credentials: false
+    - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+      with:
+        enable-cache: false
+    - name: Run unit tests
+      run: uv run --locked python -m unittest discover -s releases/schedule/tests -v
