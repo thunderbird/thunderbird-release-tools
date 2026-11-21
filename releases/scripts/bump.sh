@@ -3,128 +3,118 @@
 set -e
 
 
-echo_info() {
-    printf "%b(i)%b %b\n" "\e[1;94m" "\e[0m" "$*"
-}
+# Include shared functions
+. .shared.sh
 
-echo_warn() {
-    printf "%b/!\%b %b\n" "\e[1;93m" "\e[0m" "$*" >&2
-}
-
-echo_err() {
-    printf "%b[x]%b %b\n" "\e[1;91m" "\e[0m" "$*" >&2
-}
 
 usage() {
-    printf "\e[1;97musage:\e[0m $(basename "$0") major|minor|patch\n"
+    printf "\e[1;97musage:\e[0m $(basename "$0") [--help/-h] [major|minor|patch]\n"
     printf "bumps the version number of current branch and commits the change\n\n"
 
     printf "\e[92m100%% organic\e[0m\n"
     printf "\e[32mmade without ai\e[0m\n\n"
 
-    echo_info "the current version is $(cat mail/config/version_display.txt)"
-}
-
-git_wrap() {
-    printf "%b  $%b %b\n%b" "\e[1;92m" "\e[0;36m" "git $1" "\e[0m"
-    git "$@" | sed 's/^/        /'
-}
-
-party_print() {
-    for (( i=0; i<${#1}; i++ )); do
-        COLOR="\e[1;9$(($i % 5 + 1))m"
-
-        printf "$COLOR${1:$i:1}"
-        sleep 0.005
-    done
-
-    echo ""
+    git_root="$(git rev-parse --show-toplevel)"
+    echo_info "the current version is $(cat $git_root/mail/config/version_display.txt)"
 }
 
 
-VER_LVL="$1"
+# Parse arguments
+declare -A valid_args=(
+    [help]='h help'
+)
+parse_args valid_args[@] 1 "$@"
 
 
-if [ -z "$VER_LVL" ]; then
+# Verify requirements
+verify_git_repo
+verify_comm_checkout
+
+
+ver_lvl="${PARAMS[0]}"
+
+
+if [ $# -eq 0 ] || opt_passed "${valid_args[help]}"; then
     usage
     exit 0
-fi
-
-if ! [[ "$VER_LVL" =~ ^(major|minor|patch)$ ]]; then
-    echo_err "incorrect version level $VER_LVL"
-    exit -1
-fi
-
-if ! git rev-parse --is-inside-work-tree > /dev/null 2>&1; then
-    echo_err "current working directory must be a git repository"
+elif ! [[ "$ver_lvl" =~ ^(major|minor|patch)$ ]]; then
+    echo_err "incorrect version level $ver_lvl"
     exit -1
 fi
 
 
 # Get currently active branch
-BRANCH="$(git branch --show-current)"
+branch="$(git branch --show-current)"
 
-if ! [[ "$BRANCH" =~ ^(release|esr[0-9]+)$ ]]; then
-    echo_err "branch $BRANCH is not supported; must be release or esr###"
+if ! [[ "$branch" =~ ^(release|esr[0-9]+)$ ]]; then
+    echo_err "branch $branch is not supported; must be release or esr###"
     exit -1
 fi
 
 
 # Get paths to version files
-GIT_ROOT="$(git rev-parse --show-toplevel)"
+git_root="$(git rev-parse --show-toplevel)"
 
-VER_TXT="$GIT_ROOT/mail/config/version.txt"
-VER_DISP_TXT="$GIT_ROOT/mail/config/version_display.txt"
+ver_txt="$git_root/mail/config/version.txt"
+ver_disp_txt="$git_root/mail/config/version_display.txt"
 
 
 # Get current (old) version numbers
-OLD_VER="$(cat $VER_TXT)"
-OLD_VER_DISP="$(cat $VER_DISP_TXT)"
+old_ver="$(cat $ver_txt)"
+old_ver_disp="$(cat $ver_disp_txt)"
 
 
 # Get components of version number
-IFS='.' read -r MAJOR MINOR PATCH < "$VER_TXT"
+IFS='.' read -r major minor patch < "$ver_txt"
+if [ -z $patch ]; then
+    patch=0
+fi
 
-if [[ "$OLD_VER_DISP" =~ [0-9]+\.[0-9]+\.[0-9]+([a-z]+) ]]; then
-    SUFFIX=${BASH_REMATCH[1]}
+
+if [[ "$old_ver_disp" =~ [0-9]+\.[0-9]+\.[0-9]+([a-z]+) ]]; then
+    suffix=${BASH_REMATCH[1]}
 fi
 
 
 # Increment appropriate version level
-case $VER_LVL in
+case $ver_lvl in
     major)
-        MAJOR=$((MAJOR+1))
-        MINOR=0
-        PATCH=0
+        major=$((major+1))
+        minor=0
+        patch=0
         ;;
 
     minor)
-        MINOR=$((MINOR+1))
-        PATCH=0
+        minor=$((minor+1))
+        patch=0
         ;;
 
     patch)
-        PATCH=$((PATCH+1))
+        patch=$((patch+1))
         ;;
 esac
 
-NEW_VER="$MAJOR.$MINOR.$PATCH"
-NEW_VER_DISP="$NEW_VER$SUFFIX"
+if [ $minor -eq 0 ] && [ $patch -eq 0 ]; then
+    new_ver="$major.0"
+else
+    new_ver="$major.$minor.$patch"
+fi
+new_ver_disp="$new_ver$suffix"
 
 
 # Write new versions to disk
-echo "$NEW_VER" > "$VER_TXT"
-echo "$NEW_VER_DISP" > "$VER_DISP_TXT"
+echo "$new_ver" > "$ver_txt"
+echo "$new_ver_disp" > "$ver_disp_txt"
 
-echo_info "old version is $OLD_VER_DISP"
-echo_info "new version is $NEW_VER_DISP"
+echo_info "old version is $old_ver_disp"
+echo_info "new version is $new_ver_disp"
 
 
 # Commit version bump
-COMMIT_MSG="No bug - Set version $NEW_VER_DISP for release. r+a=release"
+commit_msg="No bug - Set version $new_ver_disp for release. r+a=release"
 
-git_wrap add "$VER_TXT" "$VER_DISP_TXT"
-git_wrap commit -q -m "$COMMIT_MSG"
+git_wrap add "$ver_txt" "$ver_disp_txt"
+git_wrap commit -q -m "$commit_msg"
 
 if [ $? -ne 0 ]; then
     echo_err "an unexpected error occurred"
@@ -137,4 +127,4 @@ git_wrap diff --color HEAD~1 HEAD
 
 
 # Success
-party_print "*.^~ bump successful! \`-*."
+party_print "bump successful!"

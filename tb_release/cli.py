@@ -13,6 +13,10 @@ COMMANDS = {
         "releases/scripts/bump.sh",
         "Bump the version of the current branch and commit it",
     ),
+    "land": (
+        "releases/scripts/land.sh",
+        "Land patches to remote Thunderbird branch, then update local repo with remote changes",
+    ),
     "pin": (
         "releases/scripts/pin.sh",
         "Pin the checkout to the latest Firefox tag on the current branch",

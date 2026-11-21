@@ -19,6 +19,7 @@ uv tool install git+https://github.com/thunderbird/thunderbird-release-tools
 |------|-------------|---------|
 |`thunderbird-release-cli` |Automates release tasks: pulling/updating repos, pinning gecko revisions, uplifting commits, and bumping version files | `cargo install --git https://github.com/thunderbird/thunderbird-release-tools --bin thunderbird-release-cli` |
 |`tb-release bump`|Bumps the specified version number of the branch you are currently on, and commits the change.|`tb-release`|
+|`tb-release land`|Lands local patches to remote Thunderbird branch, then updates local repo with remote changes.|`tb-release`|
 |`tb-release pin`|Pins checkout to the latest version of Firefox on the current branch.|`tb-release`|
 |`tb-release prep`|Switches to a branch and makes sure the working copy is synced to the branch's remote tip.|`tb-release`|
 |`tb-release uplift`|Uplifts the specified changeset to the current checkout with the specified approver.|`tb-release`|

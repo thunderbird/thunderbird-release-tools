@@ -2,7 +2,7 @@
 
 set -euo pipefail
 
-source "$(dirname "${BASH_SOURCE[0]}")/helpers.sh"
+source "$(dirname "${BASH_SOURCE[0]}")/.shared.sh"
 
 git_wrap() {
   echo_info "git $*" >&2
@@ -29,11 +29,12 @@ elif [[ $# -gt 0 ]]; then
   exit 1
 fi
 
-require_comm_root
+verify_git_repo
+verify_comm_checkout
 
-SOURCE_ROOT="$(git -C "$COMM_ROOT/.." rev-parse --show-toplevel)"
+SOURCE_ROOT="$(git -C "$git_root/.." rev-parse --show-toplevel)"
 
-GECKO_REV_YML="$COMM_ROOT/.gecko_rev.yml"
+GECKO_REV_YML="$git_root/.gecko_rev.yml"
 HG_REV=$(sed -n 's/^GECKO_HEAD_REV: *//p' "$GECKO_REV_YML")
 if [[ -z $HG_REV ]]; then
   echo_err "no active GECKO_HEAD_REV in $GECKO_REV_YML"

@@ -3,21 +3,17 @@
 set -e
 
 
-echo_info() {
-    printf "%b(i)%b %b\n" "\e[1;94m" "\e[0m" "$*"
-}
+# Include shared functions
+. .shared.sh
 
-echo_warn() {
-    printf "%b/!\%b %b\n" "\e[1;93m" "\e[0m" "$*" >&2
-}
 
-echo_err() {
-    printf "%b[x]%b %b\n" "\e[1;91m" "\e[0m" "$*" >&2
-}
+usage() {
+    printf "\e[1;97musage:\033[0m $(basename "$0") [--help/-h|--tip/-t]\n"
+    printf "pins checkout to the latest version of Firefox on the current branch\n"
+    printf "pass -t to pin to tip instead\n\n"
 
-git_wrap() {
-    printf "%b  $%b %b\n%b" "\e[1;92m" "\e[0;36m" "git $1" "\e[0m"
-    git "$@" | sed 's/^/        /'
+    printf "\e[92m100%% organic\e[0m\n"
+    printf "\e[32mmade without ai\e[0m\n"
 }
 
 nothing_to_commit() {
@@ -28,127 +24,129 @@ nothing_to_commit() {
     fi
 }
 
-hg2git () {
-    # The first parameter should be either "firefox" or "thunderbird"
-    curl -sL "https://lando.moz.tools/api/hg2git/$1/$2" | jq -r '.git_hash'
-}
 
-git2hg () {
-    # The first parameter should be either "firefox" or "thunderbird"
-    curl -sL "https://lando.moz.tools/api/git2hg/$1/$2" | jq -r '.hg_hash'
-}
-
-party_print() {
-    for (( i=0; i<${#1}; i++ )); do
-        COLOR="\e[1;9$(($i % 5 + 1))m"
-
-        printf "$COLOR${1:$i:1}"
-        sleep 0.005
-    done
-
-    echo ""
-}
+# Parse arguments
+declare -A valid_args=(
+    [help]='h help'
+    [tip]='t tip'
+)
+parse_args valid_args[@] 0 "$@"
 
 
-if ! git rev-parse --is-inside-work-tree > /dev/null 2>&1; then
-    echo_err "current working directory must be a git repository"
-    exit -1
+# Verify requirements
+verify_git_repo
+verify_comm_checkout
+
+
+if opt_passed "${valid_args[help]}"; then
+    usage
+    exit 0
 fi
 
 
 # Get currently active branch
-BRANCH="$(git branch --show-current)"
+branch="$(git branch --show-current)"
 
 
 # Get paths to version files and .gecko_rev.yml
-GIT_ROOT="$(git rev-parse --show-toplevel)"
+git_root="$(git rev-parse --show-toplevel)"
 
-VER_TXT="$GIT_ROOT/mail/config/version.txt"
-VER_DISP_TXT="$GIT_ROOT/mail/config/version_display.txt"
-GECKO_REV_YML="$GIT_ROOT/.gecko_rev.yml"
-
-
-# Verify that GECKO_HEAD_REV is not commented out
-if ! grep -qG "^[[:space:]]*GECKO_HEAD_REV:" "$GECKO_REV_YML"; then
-    echo_err GECKO_HEAD_REV is commented out in .gecko_rev.yml
-    exit -1
-fi
+ver_txt="$git_root/mail/config/version.txt"
+ver_disp_txt="$git_root/mail/config/version_display.txt"
+gecko_rev_yml="$git_root/.gecko_rev.yml"
 
 
 # Get current version numbers
-VER="$(cat "$VER_TXT")"
-VER_DISP="$(cat "$VER_DISP_TXT")"
+ver="$(cat "$ver_txt")"
+ver_disp="$(cat "$ver_disp_txt")"
 
 
 # Get components of version number
-IFS='.' read -r MAJOR MINOR PATCH < "$VER_TXT"
-
-if [[ "$VER_DISP" =~ [0-9]+.[0-9]+.[0-9]+([a-z]+[0-9]*) ]]; then
-    SUFFIX=${BASH_REMATCH[1]}
-fi
+IFS='.' read -r major minor patch < "$ver_txt"
 
 
 # Construct base tag and release tag regex
-VER_RE="${MAJOR}_([0-9]+_[0-9]+|[0-9]+)"
+ver_re="${major}_([0-9]+_[0-9]+|[0-9]+)"
 
-case $BRANCH in
+case $branch in
     beta)
-        VER_RE="${VER_RE}b[0-9]*"
+        ver_re="${ver_re}b[0-9]*"
         ;;
 
     esr*)
-        VER_RE="${VER_RE}esr"
+        ver_re="${ver_re}esr"
         ;;
 esac
 
-BASE_TAG="FIREFOX_RELEASE_${MAJOR}_BASE"
-REL_TAG_RE="FIREFOX_${VER_RE}_(RELEASE|BUILD[0-9]+)"
+base_tag="FIREFOX_RELEASE_${major}_BASE"
+rel_tag_re="FIREFOX_${ver_re}_(RELEASE|BUILD[0-9]+)"
 
 
-# Enter Firefox directory
-cd ..
+# If pinning to tip
+if opt_passed "${valid_args[tip]}"; then
+    # Set pin tag to default
+    pin_tag="default"
+
+    # Comment out GECKO_HEAD_REV on disk
+    sed -i -e "s/^[[:space:]]*GECKO_HEAD_REV:/# GECKO_HEAD_REV:/" "$gecko_rev_yml"
+
+    # Echo tag pinning message
+    echo_info "pinning to tip"
+else
+    # Ensure that GECKO_HEAD_REV is not commented out
+    if ! grep -qG "^[[:space:]]*GECKO_HEAD_REV:" "$gecko_rev_yml"; then
+        sed -i -e "0,/^#[[:space:]]*GECKO_HEAD_REV:/{s/^#[[:space:]]*GECKO_HEAD_REV:/GECKO_HEAD_REV:/}" "$gecko_rev_yml"
+    fi
+
+    # Enter Firefox directory
+    cd ..
+
+    # Get tag to pin
+    git_wrap fetch -q origin
+    tags=(
+        $(git for-each-ref --sort=creatordate --format '%(refname)' refs/tags |
+        grep -oE "($base_tag|$rel_tag_re)")
+    )
+
+    if [ -z "${#tags[@]}" ]; then
+        echo_err "no viable tags found"
+        exit -1;
+    fi
+
+    idx=$((${#tags[@]} - 1))  # Index of last tag in array
+    pin_tag="${tags[$idx]}"
+
+    # Retrieve Mercurial revision associated with selected tag
+    pin_rev=$(git2hg firefox $(git rev-list -n 1 $pin_tag))
 
 
-# Get tag to pin
-git_wrap fetch -q origin
-TAGS=(
-    $(git for-each-ref --sort=creatordate --format '%(refname)' refs/tags |
-    grep -oE "($BASE_TAG|$REL_TAG_RE)")
-)
+    # Return to Thunderbird directory
+    cd "$git_root"
 
-if [ -z "${#TAGS[@]}" ]; then
-    echo_err "No viable tags found"
-    exit -1;
+    # Write pin revision to disk
+    echo_info "pinning revision $pin_rev"
+    sed -i -e "s/^GECKO_HEAD_REV:.*$/GECKO_HEAD_REV: $pin_rev/" "$gecko_rev_yml"
+
+    # Echo tag pinning message
+    echo_info "pinning tag $pin_tag"
 fi
 
-IDX=$((${#TAGS[@]} - 1))  # Index of last tag in array
-PIN_TAG="${TAGS[$IDX]}"
-
-
-# Retrieve Mercurial revision associated with selected tag
-PIN_REV=$(git2hg firefox $(git rev-list -n 1 $PIN_TAG))
-
-
-# Return to Thunderbird directory
-cd "$GIT_ROOT"
-
-
-# Write pin tag and revision to disk
-echo_info "pinning tag $PIN_TAG"
-echo_info "pinning revision $PIN_REV"
-
-sed -i -e "s/^GECKO_HEAD_REF:.*$/GECKO_HEAD_REF: $PIN_TAG/" "$GECKO_REV_YML"
-sed -i -e "s/^GECKO_HEAD_REV:.*$/GECKO_HEAD_REV: $PIN_REV/" "$GECKO_REV_YML"
+# Write pin tag to disk
+sed -i -e "s/^GECKO_HEAD_REF:.*$/GECKO_HEAD_REF: $pin_tag/" "$gecko_rev_yml"
 
 
 if nothing_to_commit; then
-    echo_info "you are already pinned to the latest tag"
+    if opt_passed "${valid_args[tip]}"; then
+        echo_info "you are already pinned to tip"
+    else
+        echo_info "you are already pinned to the latest tag"
+    fi
 else
     # Commit version bump
-    COMMIT_MSG="No bug - Pin to mozilla-$BRANCH (${PIN_TAG}/${PIN_REV:0:12}). r+a=release"
+    commit_msg="No bug - Pin to mozilla-$branch (${pin_tag}/${pin_rev:0:12}). r+a=release"
 
-    git_wrap add "$GECKO_REV_YML"
-    git_wrap commit -q -m "$COMMIT_MSG"
+    git_wrap add "$gecko_rev_yml"
+    git_wrap commit -q -m "$commit_msg"
 
     if [ $? -ne 0 ]; then
         echo_err "an unexpected error occurred"
@@ -161,5 +159,5 @@ else
 
 
     # Success
-    party_print "*.^~ pinning successful! \`-*."
+    party_print "pinning successful!"
 fi

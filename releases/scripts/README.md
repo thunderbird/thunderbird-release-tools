@@ -5,31 +5,46 @@ commits the change.
 
 *You can check the current version by calling bump.sh with no arguments*
 
-Usage: `bump.sh major|minor|patch`
+Usage: `bump.sh [--help/-h] [major|minor|patch]`
+
+
+# land.sh
+
+Lands local patches to remote Thunderbird branch, then updates local repo with remote changes.
+
+*For safety, remote branch must always be specified*
+
+Usage: `land.sh [--help/-h] branch`
+
 
 # pin.sh
 
 Pins checkout to the latest version of Firefox on the current branch.
 
+Pass -t to pin to tip instead.
+
 *Requires Firefox checkout*
 
-Usage: `pin.sh`
+Usage: `pin.sh [--help/-h|--tip/-t]`
+
 
 # prep.sh
 
 Switches to a branch and makes sure the working copy is synced to the branch's remote tip.
 
-*If no branch is specified, the current branch is updated instead*
+If no branch is specified, the current branch is updated instead.
 
-Usage: `prep.sh [branch]`
+Usage: `prep.sh [--help/-h] branch`
+
 
 # uplift.sh
 
-Uplifts the specified changeset to the current checkout with the specified approver.
+Uplifts a git or mercurial changeset to the current checkout and adds the approver to the commit message.
 
-*Compatible with both git and Mercurial hashes*
+Pass -p to use Phabricator ID instead of changeset.
 
-Usage: `uplift.sh approver [changeset|--continue]`
+Usage: `uplift.sh [--help/-h|--phab/-p|--continue/-c] approver [changeset|phab ID]`
+
 
 # changes-since-pin.sh
 

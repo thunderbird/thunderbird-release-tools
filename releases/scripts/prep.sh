@@ -3,45 +3,34 @@
 set -e
 
 
-echo_info() {
-    printf "%b(i)%b %b\n" "\e[1;94m" "\e[0m" "$*"
-}
+# Include shared functions
+. .shared.sh
 
-echo_warn() {
-    printf "%b/!\%b %b\n" "\e[1;93m" "\e[0m" "$*" >&2
-}
 
-echo_err() {
-    printf "%b[x]%b %b\n" "\e[1;91m" "\e[0m" "$*" >&2
-}
+usage() {
+    printf "\e[1;97musage:\033[0m $(basename "$0") [--help/-h] branch\n"
+    printf "switches to a branch and makes sure the working copy is synced to the branch's remote tip\n"
+    printf "if no branch is specified, the current branch is updated instead\n\n"
 
-git_wrap() {
-    printf "%b  $%b %b\n%b" "\e[1;92m" "\e[0;36m" "git $1" "\e[0m"
-    git "$@" 2>&1 | sed 's/^/        /'
-}
-
-party_print() {
-    for (( i=0; i<${#1}; i++ )); do
-        COLOR="\e[1;9$(($i % 5 + 1))m"
-
-        printf "$COLOR${1:$i:1}"
-        sleep 0.005
-    done
-
-    echo ""
+    printf "\e[92m100%% organic\e[0m\n"
+    printf "\e[32mmade without ai\e[0m\n"
 }
 
 
-if ! git rev-parse --is-inside-work-tree > /dev/null 2>&1; then
-    echo_err "current working directory must be a git repository"
-    exit -1
-fi
+# Parse arguments
+declare -A valid_args=(
+    [help]='h help'
+)
+parse_args valid_args[@] 1 "$@"
 
-# Warn if not in repo root
-if [ ! "$PWD" = "$(git rev-parse --show-toplevel)" ]; then
-    echo_warn "You are not currently in your repo root"
-    echo_info "Change to repo root using:"
-    echo_info "\n\tcd $(git rev-parse --show-toplevel)\n"
+
+# Verify requirements
+verify_git_repo
+
+
+if opt_passed "${valid_args[help]}"; then
+    usage
+    exit 0
 fi
 
 
@@ -50,21 +39,21 @@ git_wrap fetch origin
 
 
 # Switch to appropriate branch
-BRANCH="$1"
-CUR_BRANCH=$(git rev-parse --abbrev-ref HEAD)
+branch="${PARAMS[0]}"
+cur_branch=$(git rev-parse --abbrev-ref HEAD)
 
-if [[ "$CUR_BRANCH" == "$BRANCH" ]]; then
+if [[ "$cur_branch" == "$branch" ]]; then
     echo_info "already on specified branch"
-elif [ -z "$BRANCH" ]; then
-    BRANCH=$CUR_BRANCH
+elif [ -z "$branch" ]; then
+    branch=$cur_branch
 else
-    git_wrap switch $BRANCH
+    git_wrap switch $branch
 fi
 
 
 # Reset repository to tip of remote
-git_wrap reset --hard "origin/$BRANCH"
+git_wrap reset --hard "origin/$branch"
 
 
 # Success!
-party_print "*.^~ ready to go! \`-*."
+party_print "ready to go!"
