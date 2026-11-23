@@ -581,6 +581,9 @@ title: {title}
 # Tabs without JavaScript: a radio button per tab, each showing its panel
 # when checked. Used by both the standalone page and the Jekyll page.
 TABS_STYLE = """<style>
+  .versions {{ margin-bottom: 1em; }}
+  /* Equal percentage widths make every column as wide as the widest. */
+  .versions th, .versions td {{ width: {version_width}; text-align: left; }}
   .tabs > input {{ position: absolute; opacity: 0; }}
   .tabs > label {{ display: inline-block; padding: 0.4em 1em;
                   cursor: pointer; border-bottom: 2px solid transparent; }}
@@ -594,6 +597,7 @@ TABS_STYLE = """<style>
 """
 
 PAGE_BODY = """<h1>{title}</h1>
+<h2>What train is it now?</h2>
 {versions}
 <div class="tabs">
 {tabs}
@@ -667,7 +671,7 @@ def render_html(output_file, versions, tabs, jekyll=False):
         version_rows.append(("ESR next", versions["esr_next"]))
     version_html = "\n".join(
         [
-            "<table>",
+            '<table class="versions">',
             "<tr>"
             + "".join(f"<th>{html.escape(label)}</th>" for label, _ in version_rows)
             + "</tr>",
@@ -689,6 +693,7 @@ def render_html(output_file, versions, tabs, jekyll=False):
                 tabs="\n".join(tab_html),
                 generated=date.today(),
                 panel_rules=panel_rules,
+                version_width=f"{100 / len(version_rows):g}%",
             )
         )
     print(f"HTML file generated at {output_file}")
