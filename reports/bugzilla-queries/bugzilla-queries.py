@@ -594,7 +594,7 @@ TABS_STYLE = """<style>
 """
 
 PAGE_BODY = """<h1>{title}</h1>
-<p>{versions}</p>
+{versions}
 <div class="tabs">
 {tabs}
 </div>
@@ -665,9 +665,17 @@ def render_html(output_file, versions, tabs, jekyll=False):
     ]
     if versions["esr_next"]:
         version_rows.append(("ESR next", versions["esr_next"]))
-    version_html = " · ".join(
-        f"{html.escape(label)}: {html.escape(version)}"
-        for label, version in version_rows
+    version_html = "\n".join(
+        [
+            "<table>",
+            "<tr>"
+            + "".join(f"<th>{html.escape(label)}</th>" for label, _ in version_rows)
+            + "</tr>",
+            "<tr>"
+            + "".join(f"<td>{html.escape(version)}</td>" for _, version in version_rows)
+            + "</tr>",
+            "</table>",
+        ]
     )
     if jekyll:
         template = JEKYLL_HEAD + TABS_STYLE + PAGE_BODY
