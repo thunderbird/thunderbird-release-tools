@@ -292,13 +292,11 @@ def cve_needed_query(fixed, columns):
     )
 
 
-def can_be_made_public_query(has_cve, columns):
-    """Fixed security bugs, which can be made public: those with a CVE
-    alias if has_cve, otherwise those without one."""
+def can_be_made_public_query(columns):
+    """Fixed security bugs, which can be made public."""
     return buglist_url(
         all_of(
             Match("bug_group", "substring", "core-security"),
-            Match("alias", "substring" if has_cve else "notsubstring", "CVE"),
         ),
         columnlist=columns,
         product=THUNDERBIRD_PRODUCTS,
@@ -331,8 +329,8 @@ def security_links(status, milestone, columns):
     still need a CVE assigned. A bug also counts as fixed if its target
     milestone matches milestone (when given).
 
-    Previous: fixed bugs that can be made public, with and without a CVE,
-    which aren't channel-specific."""
+    Previous: fixed bugs that can be made public, which isn't
+    channel-specific."""
     fixed = Match(status, "substring", "fixed")
     if milestone:
         fixed = any_of(fixed, Match("target_milestone", "substring", milestone))
@@ -341,14 +339,7 @@ def security_links(status, milestone, columns):
         ("Fixed, needs CVE assigned", cve_needed_query(fixed, columns)),
     ]
     previous = [
-        (
-            "Fixed, CVE assigned, can be made public",
-            can_be_made_public_query(True, columns),
-        ),
-        (
-            "Fixed, no CVE, can be made public",
-            can_be_made_public_query(False, columns),
-        ),
+        ("Fixed, can be made public", can_be_made_public_query(columns)),
     ]
     return [
         ("Current Security Issues", current),
