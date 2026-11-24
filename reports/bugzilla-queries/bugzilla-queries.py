@@ -270,13 +270,18 @@ def cve_columns(beta, release, esr):
     )
 
 
+# Excludes bugs marked [no-cve] in the whiteboard: they won't get a CVE.
+NOT_NO_CVE = Match("status_whiteboard", "notsubstring", "[no-cve]")
+
+
 def cve_needed_query(fixed, columns):
     """Security bugs matching the fixed criteria that mention a CVE in
-    comments but don't have a CVE alias yet."""
+    comments but don't have a CVE alias yet, and aren't marked [no-cve]."""
     return buglist_url(
         all_of(
             Match("bug_group", "substring", "core-security"),
             Match("alias", "notsubstring", "CVE"),
+            NOT_NO_CVE,
             fixed,
         ),
         columnlist=columns,
@@ -303,11 +308,12 @@ def can_be_made_public_query(has_cve, columns):
 
 def cve_not_fixed_query(status, columns):
     """Security bugs that mention a CVE in comments and are still affected
-    according to the status field."""
+    according to the status field, and aren't marked [no-cve]."""
     return buglist_url(
         all_of(
             Match("bug_group", "substring", "core-security"),
             Match(status, "substring", "affected"),
+            NOT_NO_CVE,
         ),
         columnlist=columns,
         product=THUNDERBIRD_PRODUCTS,
