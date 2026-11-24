@@ -8,6 +8,7 @@ import argparse
 import html
 import json
 import os
+import re
 import urllib.request
 import webbrowser
 from dataclasses import dataclass, field
@@ -293,7 +294,8 @@ def cve_needed_query(fixed, columns):
 
 
 def can_be_made_public_query(columns):
-    """Fixed security bugs, which can be made public."""
+    """Security bugs fixed more than two months ago, which can be made
+    public. Fixed means the resolution was set to FIXED."""
     return buglist_url(
         all_of(
             Match("bug_group", "substring", "core-security"),
@@ -301,6 +303,9 @@ def can_be_made_public_query(columns):
         columnlist=columns,
         product=THUNDERBIRD_PRODUCTS,
         resolution="FIXED",
+        chfield="resolution",
+        chfieldvalue="FIXED",
+        chfieldto="2m",
     )
 
 
@@ -322,8 +327,18 @@ def cve_not_fixed_query(status, columns):
     )
 
 
+# Shown under the Previous Security Issues heading.
+MAKING_PUBLIC_NOTE = (
+    "Security bugs are currently made public about two months after the fix "
+    "is released. There are exceptions, for example if there is coordination "
+    "with another product, pending research, or an affected ESR awaiting end "
+    "of life. Ensure exceptions remain private with a `keep-hidden` keyword and "
+    "a brief Whiteboard explanation."
+)
+
+
 def security_links(status, milestone, columns):
-    """Security queries for one channel, as (heading, links) subsections.
+    """Security queries for one channel, as Subsections.
 
     Current: bugs not fixed yet with a CVE comment, and fixed bugs that
     still need a CVE assigned. A bug also counts as fixed if its target
@@ -342,8 +357,8 @@ def security_links(status, milestone, columns):
         ("Fixed, can be made public", can_be_made_public_query(columns)),
     ]
     return [
-        ("Current Security Issues", current),
-        ("Previous Security Issues", previous),
+        Subsection("Current Security Issues", current),
+        Subsection("Previous Security Issues", previous, MAKING_PUBLIC_NOTE),
     ]
 
 
@@ -448,6 +463,16 @@ Links = list[tuple[str, str]]
 
 
 @dataclass
+class Subsection:
+    """A titled list of links, with an optional note shown above the links.
+
+    In note, text in `backticks` is shown as code."""
+    heading: str
+    links: Links
+    note: str = ""
+
+
+@dataclass
 class ChannelTab:
     """The links shown on one channel's tab of the page."""
     # Used in the tab's HTML ids (tab-<id>, panel-<id>)
@@ -459,8 +484,8 @@ class ChannelTab:
     potential_column: str
     # (row label, regression url, non-regression url)
     potential: list[tuple[str, str, str]]
-    # (heading, links) subsections of the Security section
-    security: list[tuple[str, Links]] = field(default_factory=list)
+    # Subsections of the Security section
+    security: list[Subsection] = field(default_factory=list)
     other: Links = field(default_factory=list)
 
 
@@ -643,6 +668,11 @@ def _link(text, url):
     return f'<a href="{html.escape(url)}" target="_blank">{html.escape(text)}</a>'
 
 
+def _note_html(note):
+    """Escape note as HTML, showing text in `backticks` as code."""
+    return re.sub(r"`([^`]+)`", r"<code>\1</code>", html.escape(note))
+
+
 def _link_list(links):
     items = "\n".join(f"<li>{_link(text, url)}</li>" for text, url in links)
     return f"<ul>\n{items}\n</ul>"
@@ -668,8 +698,11 @@ def _panel_html(tab):
     ]
     if tab.security:
         parts.append("<h2>Security</h2>")
-        for heading, links in tab.security:
-            parts += [f"<h3>{html.escape(heading)}</h3>", _link_list(links)]
+        for sub in tab.security:
+            parts.append(f"<h3>{html.escape(sub.heading)}</h3>")
+            if sub.note:
+                parts.append(f"<p>{_note_html(sub.note)}</p>")
+            parts.append(_link_list(sub.links))
     if tab.other:
         parts += ["<h2>Other</h2>", _link_list(tab.other)]
     return "\n".join(parts)
