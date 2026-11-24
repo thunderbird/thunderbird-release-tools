@@ -325,17 +325,22 @@ def cve_not_fixed_query(status, columns):
 
 
 def security_links(status, milestone, columns):
-    """CVE queries for one channel: bugs not fixed yet with a CVE comment,
-    and fixed bugs that still need a CVE assigned. A bug also counts as
-    fixed if its target milestone matches milestone (when given). Also
-    fixed bugs that can be made public, with and without a CVE, which
-    aren't channel-specific."""
+    """Security queries for one channel, as (heading, links) subsections.
+
+    Current: bugs not fixed yet with a CVE comment, and fixed bugs that
+    still need a CVE assigned. A bug also counts as fixed if its target
+    milestone matches milestone (when given).
+
+    Previous: fixed bugs that can be made public, with and without a CVE,
+    which aren't channel-specific."""
     fixed = Match(status, "substring", "fixed")
     if milestone:
         fixed = any_of(fixed, Match("target_milestone", "substring", milestone))
-    return [
+    current = [
         ("Not yet fixed, with CVE comment", cve_not_fixed_query(status, columns)),
         ("Fixed, needs CVE assigned", cve_needed_query(fixed, columns)),
+    ]
+    previous = [
         (
             "Fixed, CVE assigned, can be made public",
             can_be_made_public_query(True, columns),
@@ -344,6 +349,10 @@ def security_links(status, milestone, columns):
             "Fixed, no CVE, can be made public",
             can_be_made_public_query(False, columns),
         ),
+    ]
+    return [
+        ("Current Security Issues", current),
+        ("Previous Security Issues", previous),
     ]
 
 
@@ -459,7 +468,8 @@ class ChannelTab:
     potential_column: str
     # (row label, regression url, non-regression url)
     potential: list[tuple[str, str, str]]
-    security: Links = field(default_factory=list)
+    # (heading, links) subsections of the Security section
+    security: list[tuple[str, Links]] = field(default_factory=list)
     other: Links = field(default_factory=list)
 
 
@@ -593,6 +603,7 @@ PAGE_HEAD = """<!DOCTYPE html>
   th, td {{ padding: 0.2em 1.5em 0.2em 0; text-align: left; }}
   th {{ border-bottom: 1px solid #e4e4e7; }}
   h2 {{ font-size: 1.1em; margin-top: 1.5em; }}
+  h3 {{ font-size: 1em; margin-top: 1em; }}
 </style>
 </head>
 <body>
@@ -665,7 +676,9 @@ def _panel_html(tab):
         "</table>",
     ]
     if tab.security:
-        parts += ["<h2>Security</h2>", _link_list(tab.security)]
+        parts.append("<h2>Security</h2>")
+        for heading, links in tab.security:
+            parts += [f"<h3>{html.escape(heading)}</h3>", _link_list(links)]
     if tab.other:
         parts += ["<h2>Other</h2>", _link_list(tab.other)]
     return "\n".join(parts)
