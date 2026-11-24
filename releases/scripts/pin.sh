@@ -4,7 +4,7 @@ set -e
 
 
 # Include shared functions
-. .shared.sh
+. "$(dirname "$0")/.shared.sh"
 
 
 usage() {
