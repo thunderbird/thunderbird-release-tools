@@ -261,6 +261,7 @@ def cve_columns(beta, release, esr):
             "bug_status",
             "changeddate",
             "opendate",
+            "component",
             "target_milestone",
             status_field(beta),
             status_field(release),
@@ -286,6 +287,20 @@ def cve_needed_query(fixed, columns):
     )
 
 
+def can_be_made_public_query(has_cve, columns):
+    """Fixed security bugs, which can be made public: those with a CVE
+    alias if has_cve, otherwise those without one."""
+    return buglist_url(
+        all_of(
+            Match("bug_group", "substring", "core-security"),
+            Match("alias", "substring" if has_cve else "notsubstring", "CVE"),
+        ),
+        columnlist=columns,
+        product=THUNDERBIRD_PRODUCTS,
+        resolution="FIXED",
+    )
+
+
 def cve_not_fixed_query(status, columns):
     """Security bugs that mention a CVE in comments and are still affected
     according to the status field."""
@@ -306,13 +321,23 @@ def cve_not_fixed_query(status, columns):
 def security_links(status, milestone, columns):
     """CVE queries for one channel: bugs not fixed yet with a CVE comment,
     and fixed bugs that still need a CVE assigned. A bug also counts as
-    fixed if its target milestone matches milestone (when given)."""
+    fixed if its target milestone matches milestone (when given). Also
+    fixed bugs that can be made public, with and without a CVE, which
+    aren't channel-specific."""
     fixed = Match(status, "substring", "fixed")
     if milestone:
         fixed = any_of(fixed, Match("target_milestone", "substring", milestone))
     return [
         ("Not yet fixed, with CVE comment", cve_not_fixed_query(status, columns)),
         ("Fixed, needs CVE assigned", cve_needed_query(fixed, columns)),
+        (
+            "Fixed, CVE assigned, can be made public",
+            can_be_made_public_query(True, columns),
+        ),
+        (
+            "Fixed, no CVE, can be made public",
+            can_be_made_public_query(False, columns),
+        ),
     ]
 
 
